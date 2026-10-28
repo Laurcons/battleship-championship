@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON responses are inspected loosely */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eventually, startTestApp, tokenFor, type Client, type TestApp } from './helpers/testApp.js';
-import { TestProgram, type Behavior } from './helpers/program.js';
+import { TestProgram } from './helpers/program.js';
 
 interface World {
   t: TestApp;

@@ -6,7 +6,6 @@ import {
   otherSeat,
   summarizeGame,
   type GameEvent,
-  type GameState,
   type Seat,
 } from '@bsc/engine';
 import {
@@ -323,14 +322,13 @@ export class LobbyRuntime {
       const sentAt = this.host.now();
       const result = await new Promise<PendingResult | { kind: 'timeout' } | { kind: 'cancelled' }>((resolve) => {
         let off: () => void = () => undefined;
-        let timer: ReturnType<typeof setTimeout> | undefined;
         const finish = (r: PendingResult | { kind: 'timeout' } | { kind: 'cancelled' }) => {
           clearTimeout(timer);
           off();
           if (this.pending[seat - 1]?.rid === rid) this.pending[seat - 1] = null;
           resolve(r);
         };
-        timer = setTimeout(() => finish({ kind: 'timeout' }), deadlineMs);
+        const timer = setTimeout(() => finish({ kind: 'timeout' }), deadlineMs);
         this.pending[seat - 1] = { rid, expect, settle: finish };
         off = token.onCancel(() => finish({ kind: 'cancelled' }));
         if (!token.cancelled) this.send(seat, build(rid));
