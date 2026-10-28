@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { generateLobbyCode, normalizeLobbyCode } from '../src/lib/lobbyCode';
+import { generateLobbyCode, normalizeLobbyCode } from '../src/lobbyCode.js';
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 

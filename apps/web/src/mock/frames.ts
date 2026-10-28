@@ -1,30 +1,12 @@
-import {
-  programShot,
-  replay,
-  seatView,
-  apply,
-  createGame,
-  otherSeat,
-  type GameEvent,
-  type GameState,
-  type Seat,
-  type Shot,
-} from '@bsc/engine';
+import { apply, createGame, otherSeat, replay, type GameEvent, type Seat } from '@bsc/engine';
+import { gameOverFrame, placeFrame, turnFrame } from '@bsc/protocol';
+import type { FrameError } from '@bsc/protocol';
 import type { Frame } from '../api/types';
 import { PLATFORM_CONSTANTS, type GameRec, type LobbyRec } from './state';
 
 const MAX_FRAMES = 2000;
 
 const j = (value: unknown): string => JSON.stringify(value);
-
-function shotMsg(state: GameState, shot: Shot) {
-  const s = programShot(state, shot);
-  return s.len === undefined ? { x: s.x, y: s.y, result: s.result } : { x: s.x, y: s.y, result: s.result, len: s.len };
-}
-
-function gameInfo(game: GameRec, total: number, seat: Seat) {
-  return { id: game.id, index: game.index, total, first: game.first === seat ? 'you' : 'opponent' };
-}
 
 /**
  * Reconstructs the frames the platform would have exchanged with the program on `seat`, from the
@@ -50,34 +32,24 @@ function gameFrames(lobby: LobbyRec, game: GameRec, seat: Seat, opponentName: st
   let state = createGame(lobby.ruleset, game.first);
   let rid = 0;
   let pendingTurn = false;
-  let lastShotIdx = -1; // index of this seat's most recent shot event
-  let incomingSince = 0; // index into events after which opponent shots count as "incoming"
 
   const sendTurn = (i: number, error: { code: string; message: string } | null, strikes: number) => {
     rid++;
-    const view = seatView(state, seat);
-    const mine = state.shots[seat];
-    const last = lastShotIdx >= 0 ? mine[mine.length - 1] : undefined;
-    const incoming = events
-      .slice(incomingSince, i)
-      .filter((e): e is Extract<GameEvent, { type: 'shot' }> => e.type === 'shot' && e.seat !== seat)
-      .map((e) => shotMsg(state, e));
     out.push({
       at: at(i),
       dir: 'to_program',
-      text: j({
-        type: 'turn',
-        rid,
-        deadline_ms: PLATFORM_CONSTANTS.moveTimeoutMs,
-        game: gameInfo(game, total, seat),
-        you: view.you,
-        enemy: view.enemy,
-        enemy_remaining: view.enemyRemaining,
-        last_shot: last ? shotMsg(state, last) : null,
-        incoming,
-        error,
-        strikes,
-      }),
+      text: j(
+        turnFrame({
+          rid,
+          deadlineMs: PLATFORM_CONSTANTS.moveTimeoutMs,
+          game: { id: game.id, index: game.index, total },
+          seat,
+          state,
+          events: events.slice(0, i),
+          error: error as FrameError | null,
+          strikes,
+        }),
+      ),
     });
     pendingTurn = true;
   };
@@ -85,14 +57,17 @@ function gameFrames(lobby: LobbyRec, game: GameRec, seat: Seat, opponentName: st
   out.push({
     at: game.startedAt,
     dir: 'to_program',
-    text: j({
-      type: 'place',
-      rid: ++rid,
-      deadline_ms: PLATFORM_CONSTANTS.placeTimeoutMs,
-      game: gameInfo(game, total, seat),
-      opponent: { name: opponentName, program: opponentSeat?.program ?? null },
-      error: null,
-    }),
+    text: j(
+      placeFrame({
+        rid: ++rid,
+        deadlineMs: PLATFORM_CONSTANTS.placeTimeoutMs,
+        game: { id: game.id, index: game.index, total, first: game.first },
+        seat,
+        opponent: { name: opponentName, program: opponentSeat?.program ?? null },
+        error: null,
+        strikes: 0,
+      }),
+    ),
   });
 
   events.forEach((event, i) => {
@@ -103,8 +78,6 @@ function gameFrames(lobby: LobbyRec, game: GameRec, seat: Seat, opponentName: st
         if (!pendingTurn) sendTurn(i, null, 0);
         out.push({ at: at(i), dir: 'from_program', text: j({ type: 'fire', rid, x: event.x, y: event.y }) });
         pendingTurn = false;
-        lastShotIdx = i;
-        incomingSince = i + 1;
       }
     } else if (event.type === 'infraction') {
       if (event.seat === seat) {
@@ -124,29 +97,21 @@ function gameFrames(lobby: LobbyRec, game: GameRec, seat: Seat, opponentName: st
     } else if (event.type === 'game_over') {
       const final = replay(lobby.ruleset, game.first, events);
       const wins = (s: Seat) => series?.summaries.filter((x) => x.index <= game.index && x.winner === s).length ?? 0;
-      const lastMine = final.shots[seat].at(-1);
-      const incoming = events
-        .slice(incomingSince)
-        .filter((e): e is Extract<GameEvent, { type: 'shot' }> => e.type === 'shot' && e.seat !== seat)
-        .map((e) => shotMsg(final, e));
       out.push({
         at: at(i),
         dir: 'to_program',
-        text: j({
-          type: 'game_over',
-          game: { id: game.id, index: game.index, total },
-          winner: event.winner === seat ? 'you' : 'opponent',
-          reason: event.reason,
-          last_shot: lastMine && lastShotIdx >= 0 ? shotMsg(final, lastMine) : null,
-          incoming,
-          series: { score: { you: wins(seat), opponent: wins(otherSeat(seat)) }, done: game.index >= total },
-          reveal: lobby.ruleset.revealOnGameOver
-            ? {
-                opponent_ships: final.ships[otherSeat(seat)],
-                opponent_shots: final.shots[otherSeat(seat)].map((s) => shotMsg(final, s)),
-              }
-            : null,
-        }),
+        text: j(
+          gameOverFrame({
+            game: { id: game.id, index: game.index, total },
+            seat,
+            state: final,
+            events,
+            winner: event.winner,
+            reason: event.reason,
+            score: { 1: wins(1), 2: wins(2) },
+            done: game.index >= total,
+          }),
+        ),
       });
     }
     state = apply(state, event);

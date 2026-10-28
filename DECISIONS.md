@@ -219,7 +219,14 @@ These are stated in the docs (a dedicated "Rules for programs" page), so every p
 - Mock stack: Bootstrap Icons, React Router, react-hook-form with zod, Recharts (boards and heatmaps are plain CSS grid), Vitest with React Testing Library, Playwright with axe.
 - Build order: (1) monorepo scaffold and engine, (2) web shell with `ApiClient` and mock data, (3) participant flows, (4) lobby page, (5) admin flows, (6) docs pages and mock control panel, (7) Playwright tests across all flows.
 
-## 19. Out of scope for now
+## 19. Real implementation (second build step)
+
+- `packages/protocol` holds the zod schemas for every frame, the frame builders (`placeFrame`, `turnFrame`, `gameOverFrame`), the wire ruleset mapping, lobby codes and token generation. API, bots, mock and tests all use it. A test validates every JSON example in `docs/` against the schemas.
+- Build order: (1) protocol package, (2) API core (NestJS + Prisma/MariaDB, HTTP routes implementing `ApiClient`), (3) game runtime (WebSocket gateway, lobby orchestration, practice bots, SSE), (4) HTTP `ApiClient` in the web app and the Playwright suite against the real stack, (5) integration, security and chaos tests, deployment files and README, (6) example bots against the real server.
+- In the mock, seat 1 is the lobby creator and starts game 1. The real platform uses the rule agreed earlier (the first program to connect takes the first empty seat); the mock differs only because its programs are simulated.
+- Tokens are `bsc_` plus 32 characters from `[A-Za-z0-9]`, drawn without modulo bias from a cryptographically secure source.
+
+## 20. Out of scope for now
 
 - Tournament brackets (a good idea for after the platform works).
 - Per-participant login passwords.

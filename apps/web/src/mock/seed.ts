@@ -1,6 +1,6 @@
 import { CLASSIC_10X10, emptyHeatmap, type Ruleset, type Seat } from '@bsc/engine';
 import type { BotKind } from '@bsc/bots';
-import { generateLobbyCode } from '../lib/lobbyCode';
+import { generateLobbyCode } from '@bsc/protocol';
 import { LobbyRunner, type RunnerHost } from './runner';
 import {
   addNote,

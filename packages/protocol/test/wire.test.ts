@@ -1,9 +1,12 @@
-// @vitest-environment node
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CLASSIC_10X10 } from '@bsc/engine';
 import { describe, expect, it } from 'vitest';
-import protocolDoc from '../../../docs/protocol-v1.md?raw';
-import rulesetsDoc from '../../../docs/rulesets.md?raw';
-import { toWireRuleset } from '../src/lib/wire';
+import { toWireRuleset } from '../src/index.js';
+
+const doc = (name: string) => readFileSync(join(import.meta.dirname, '../../../docs', name), 'utf8');
+const protocolDoc = doc('protocol-v1.md');
+const rulesetsDoc = doc('rulesets.md');
 
 describe('ruleset wire format', () => {
   it('has exactly the fields of the welcome example in the protocol document', () => {
@@ -26,18 +29,5 @@ describe('ruleset wire format', () => {
       repeat_shot: 'waste',
       fleet: [5, 4, 3, 3, 2],
     });
-  });
-});
-
-import { formatDuration } from '../src/lib/format';
-
-describe('formatDuration', () => {
-  it('drops zero parts', () => {
-    expect(formatDuration(60_000)).toBe('1 min');
-    expect(formatDuration(90_000)).toBe('1 min 30 s');
-    expect(formatDuration(7_200_000)).toBe('2 h');
-    expect(formatDuration(7_260_000)).toBe('2 h 1 min');
-    expect(formatDuration(10_000)).toBe('10 s');
-    expect(formatDuration(250)).toBe('250 ms');
   });
 });

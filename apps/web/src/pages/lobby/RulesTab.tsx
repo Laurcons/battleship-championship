@@ -7,7 +7,7 @@ import { CopyButton } from '../../components/CopyButton';
 import { RulesetDetails } from '../../components/RulesetDetails';
 import { keys, useRulesets } from '../../hooks/queries';
 import { formatDuration } from '../../lib/format';
-import { toWireRuleset } from '../../lib/wire';
+import { toWireRuleset } from '@bsc/protocol';
 
 /** The ruleset this lobby is pinned to, how programs receive it, and the platform limits. */
 export function RulesTab({ lobby }: { lobby: LobbySummary }) {

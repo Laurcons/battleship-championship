@@ -1,6 +1,6 @@
 # Program Protocol v1 (DRAFT)
 
-Status: agreed in principle (all open questions answered). When implemented, the zod schemas in `packages/protocol` become the single source of truth and this document is generated from them plus hand-written prose.
+Status: agreed in principle (all open questions answered). The zod schemas in `packages/protocol` are the single source of truth for the frame shapes, and a test validates every JSON example in `docs/` against them.
 
 ## 1. Transport
 
@@ -76,7 +76,8 @@ After `welcome` the program waits. A game or battery starts **only when a partic
   "type": "place", "rid": 1, "deadline_ms": 10000,
   "game": { "id": "g_8f3a", "index": 1, "total": 100, "first": "you" },
   "opponent": { "name": "Alex", "program": { "name": "x", "version": "1" } },
-  "error": null
+  "error": null,
+  "strikes": 0
 }
 ```
 
@@ -102,8 +103,30 @@ All ships go in **one** message. The lengths must match the fleet exactly, and s
 {
   "type": "turn", "rid": 7, "deadline_ms": 10000,
   "game": { "id": "g_8f3a", "index": 1, "total": 100, "first": "you" },
-  "you":   ["S..o......", "...", "..."],
-  "enemy": ["..x.......", "...", "..."],
+  "you": [
+    "SSSSS.....",
+    ".o........",
+    "SSSS.o....",
+    "..........",
+    "SSS..SSS..",
+    "..........",
+    "........xx",
+    "..........",
+    "..........",
+    ".........."
+  ],
+  "enemy": [
+    "..........",
+    "...o......",
+    "..........",
+    "...x......",
+    "...x......",
+    "..........",
+    "......o...",
+    "..........",
+    "..........",
+    ".........."
+  ],
   "enemy_remaining": [5, 4, 3, 2],
   "last_shot": { "x": 3, "y": 4, "result": "hit" },
   "incoming": [ { "x": 1, "y": 1, "result": "miss" } ],
@@ -116,7 +139,7 @@ All ships go in **one** message. The lengths must match the fleet exactly, and s
 - `last_shot` is the result of your previous shot. It is `null` on your first turn of the game.
 - `incoming` lists the opponent's shots since your last turn, in order. It is empty after a hit with `extra_turn_on_hit`. This is the only place the order of the opponent's shots is visible during a game. It is the basis for opponent modeling.
 - `enemy_remaining` lists the lengths of the opponent's unsunk ships. It is `null` when sunk ships are not announced.
-- `error` is set when your previous reply was invalid and this is a re-issue (see section 5).
+- `error` is set when your previous reply was invalid and this is a re-issue (see section 5); `strikes` is then your updated strike count. `place` carries `error` and `strikes` too.
 
 ### `fire` (program to platform)
 

@@ -29,9 +29,8 @@ import {
   type Session,
   type ViewerMode,
 } from '../api/types';
-import { generateLobbyCode } from '../lib/lobbyCode';
+import { generateLobbyCode, toWireRuleset } from '@bsc/protocol';
 import { buildFrames } from './frames';
-import { toWireRuleset } from '../lib/wire';
 import { newToken } from './util';
 import { LobbyRunner, type RunnerHost, type Speed } from './runner';
 import { createSeedState } from './seed';

@@ -1,10 +1,11 @@
 import type { Ruleset } from '@bsc/engine';
+import type { WireRuleset } from './schemas.js';
 
 /**
- * A ruleset as programs receive it in `welcome.ruleset` (see docs/protocol-v1.md): snake_case
- * field names, no description. The single place that defines this shape in the web app.
+ * A ruleset as programs receive it in `welcome.ruleset` (docs/protocol-v1.md): snake_case field
+ * names, no description. The single place that defines this shape.
  */
-export function toWireRuleset(r: Ruleset) {
+export function toWireRuleset(r: Ruleset): WireRuleset {
   return {
     id: r.id,
     width: r.width,
