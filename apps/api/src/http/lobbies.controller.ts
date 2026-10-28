@@ -139,9 +139,14 @@ export class LobbiesController {
     res.flushHeaders();
     res.write('retry: 2000\n\n');
 
-    const unsubscribe = this.hub.subscribe(lobby.id, viewer, (update) => {
-      if (!res.writableEnded) res.write(`data: ${JSON.stringify(update)}\n\n`);
-    });
+    const unsubscribe = this.hub.subscribe(
+      lobby.id,
+      viewer,
+      (update) => {
+        if (!res.writableEnded) res.write(`data: ${JSON.stringify(update)}\n\n`);
+      },
+      () => res.end(),
+    );
     // Comments keep proxies from closing the stream; each beat also re-checks the session.
     const beat = setInterval(() => {
       void this.auth.viewerFor(cookie).then((still) => {

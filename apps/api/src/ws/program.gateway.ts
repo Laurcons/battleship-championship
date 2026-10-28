@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
-import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Logger, type BeforeApplicationShutdown, type OnApplicationBootstrap } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { Seat } from '@bsc/engine';
 import {
@@ -55,7 +55,7 @@ const errorFrame = (code: string, message: string, fatal: boolean) => JSON.strin
  * framing limits, heartbeat, the hello handshake and seat allocation. Game logic is in the lobby runtime.
  */
 @Injectable()
-export class ProgramGateway implements OnApplicationBootstrap, OnApplicationShutdown {
+export class ProgramGateway implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly logger = new Logger('ws');
   private wss: WebSocketServer | null = null;
   private links = new Set<WsLink>();
@@ -95,7 +95,8 @@ export class ProgramGateway implements OnApplicationBootstrap, OnApplicationShut
     this.server.on('upgrade', this.onUpgrade);
   }
 
-  onApplicationShutdown(): void {
+  /** Runs before the HTTP server stops accepting: it would otherwise wait for these sockets forever. */
+  beforeApplicationShutdown(): void {
     if (this.server && this.onUpgrade) this.server.off('upgrade', this.onUpgrade);
     for (const link of this.links) {
       this.stopTimers(link);

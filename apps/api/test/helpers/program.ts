@@ -19,6 +19,8 @@ export interface ProgramOptions {
   behavior?: Behavior;
   brain?: BotKind;
   seed?: number;
+  /** Delay each default reply by this many ms (to watch games while they are live). */
+  delayMs?: number;
   /** Skip sending hello (to test handshake failures). */
   noHello?: boolean;
 }
@@ -99,14 +101,19 @@ export class TestProgram {
     if (frame.type === 'place') {
       const custom = this.behavior.onPlace?.(frame, this);
       if (custom === null) return;
-      this.send(custom ?? { type: 'placement', rid: frame.rid, ships: this.brain.place(this.rulesetFor(frame), this.rng) });
+      this.reply(custom ?? { type: 'placement', rid: frame.rid, ships: this.brain.place(this.rulesetFor(frame), this.rng) });
     } else if (frame.type === 'turn') {
       const custom = this.behavior.onTurn?.(frame, this);
       if (custom === null) return;
       if (custom) return this.send(custom);
       const cell = this.brain.fire(this.rulesetFor(frame), { you: frame.you, enemy: frame.enemy, enemyRemaining: frame.enemy_remaining }, this.rng);
-      this.send({ type: 'fire', rid: frame.rid, x: cell.x, y: cell.y });
+      this.reply({ type: 'fire', rid: frame.rid, x: cell.x, y: cell.y });
     }
+  }
+
+  private reply(frame: object): void {
+    if (this.options.delayMs) setTimeout(() => this.send(frame), this.options.delayMs);
+    else this.send(frame);
   }
 
   /** The program reads the ruleset from `welcome`, as a real one would. */

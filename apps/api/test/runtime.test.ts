@@ -1,53 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON responses are inspected loosely */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { eventually, startTestApp, tokenFor, type Client, type TestApp } from './helpers/testApp.js';
+import { eventually, tokenFor } from './helpers/testApp.js';
+import { World } from './helpers/world.js';
 import { TestProgram } from './helpers/program.js';
-
-interface World {
-  t: TestApp;
-  alice: Client;
-  bruno: Client;
-  aliceToken: string;
-  brunoToken: string;
-  programs: TestProgram[];
-}
 
 let w: World;
 
-async function setup(env: Record<string, string> = {}): Promise<World> {
-  const t = await startTestApp({ env: { MOVE_TIMEOUT_MS: '400', PLACE_TIMEOUT_MS: '400', GRACE_MS: '600', HELLO_TIMEOUT_MS: '300', ...env } });
-  const alice = t.client();
-  await alice.loginAs(t.people.Alice);
-  const bruno = t.client();
-  await bruno.loginAs(t.people.Bruno);
-  return { t, alice, bruno, aliceToken: await tokenFor(alice), brunoToken: await tokenFor(bruno), programs: [] };
-}
-
 beforeEach(async () => {
-  w = await setup();
+  w = await World.create();
 });
 afterEach(async () => {
-  for (const p of w.programs) p.kill();
-  await w.t.close();
+  await w.close();
 });
 
-async function connect(client: 'alice' | 'bruno', lobby: string, extra: Partial<Parameters<typeof TestProgram.connect>[1]> = {}): Promise<TestProgram> {
-  const p = await TestProgram.connect(w.t.url, { token: client === 'alice' ? w.aliceToken : w.brunoToken, lobby, ...extra });
-  w.programs.push(p);
-  return p;
-}
-
-const newLobby = async (body: Record<string, unknown> = {}) =>
-  (await w.alice.post('/api/lobbies', { opponent: { kind: 'participant', participantId: w.t.people.Bruno }, rulesetId: 'classic-10x10', ...body })).body;
-
-async function startAndFinish(lobbyId: string, games = 1) {
-  const started = await w.alice.post(`/api/lobbies/${lobbyId}/start`, { games });
-  expect(started.status).toBe(200);
-  return eventually(async () => {
-    const lobby = (await w.alice.get(`/api/lobbies/${lobbyId}`)).body;
-    return lobby.series && lobby.series.status !== 'running' ? lobby : false;
-  }, 20_000, 'the series to end');
-}
+const connect = (...args: Parameters<World['connect']>) => w.connect(...args);
+const newLobby = (body?: Record<string, unknown>) => w.newLobby(body);
+const startAndFinish = (id: string, games = 1) => w.startAndFinish(id, games);
 
 describe('a game between two programs', () => {
   it('plays a whole game through the documented protocol and stores it', async () => {

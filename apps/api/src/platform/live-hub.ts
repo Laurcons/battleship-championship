@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, type BeforeApplicationShutdown } from '@nestjs/common';
 import type { LiveUpdate } from '@bsc/api-contract';
 import { CLOCK, type Clock } from './util.js';
 import { LobbiesService } from './lobbies.service.js';
@@ -9,11 +9,13 @@ export const EMIT_INTERVAL_MS = 80;
 interface Subscriber {
   viewer: Viewer;
   send: (update: LiveUpdate) => void;
+  /** Ends the stream (the lobby was deleted, or the platform is stopping). */
+  end: () => void;
 }
 
 /** Fans lobby changes out to live viewers (SSE), at most every `EMIT_INTERVAL_MS` per lobby. */
 @Injectable()
-export class LiveHub {
+export class LiveHub implements BeforeApplicationShutdown {
   private subscribers = new Map<string, Set<Subscriber>>();
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private lastEmit = new Map<string, number>();
@@ -33,8 +35,8 @@ export class LiveHub {
   }
 
   /** Registers a viewer and immediately sends the current state. Returns the unsubscribe function. */
-  subscribe(lobbyId: string, viewer: Viewer, send: (update: LiveUpdate) => void): () => void {
-    const sub: Subscriber = { viewer, send };
+  subscribe(lobbyId: string, viewer: Viewer, send: (update: LiveUpdate) => void, end: () => void = () => undefined): () => void {
+    const sub: Subscriber = { viewer, send, end };
     let set = this.subscribers.get(lobbyId);
     if (!set) this.subscribers.set(lobbyId, (set = new Set()));
     set.add(sub);
@@ -77,13 +79,19 @@ export class LiveHub {
   }
 
   private close(lobbyId: string): void {
+    for (const sub of this.subscribers.get(lobbyId) ?? []) sub.end();
     const timer = this.timers.get(lobbyId);
     if (timer) clearTimeout(timer);
     this.timers.delete(lobbyId);
     this.subscribers.delete(lobbyId);
   }
 
+  beforeApplicationShutdown(): void {
+    this.dispose();
+  }
+
   dispose(): void {
+    for (const set of this.subscribers.values()) for (const sub of set) sub.end();
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
     this.subscribers.clear();

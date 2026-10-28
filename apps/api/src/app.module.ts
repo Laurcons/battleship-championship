@@ -51,7 +51,6 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
 
   async onApplicationShutdown(): Promise<void> {
     if (this.purgeTimer) clearInterval(this.purgeTimer);
-    this.hub.dispose();
     this.lobbies.dispose();
     await this.store.close();
   }

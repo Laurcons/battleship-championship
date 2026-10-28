@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Logger, type BeforeApplicationShutdown } from '@nestjs/common';
 import { BOT_KINDS } from '@bsc/bots';
 import { emptyHeatmap, type Seat } from '@bsc/engine';
 import { ApiError, type LobbySummary } from '@bsc/api-contract';
@@ -17,7 +17,7 @@ const SWEEP_INTERVAL_MS = 30_000;
 
 /** Owns the runtime of every lobby, and the actions that start, restart and reset batteries. */
 @Injectable()
-export class RuntimeService implements OnApplicationShutdown {
+export class RuntimeService implements BeforeApplicationShutdown {
   private readonly logger = new Logger('runtime');
   private runtimes = new Map<string, LobbyRuntime>();
   private sweeper: ReturnType<typeof setInterval> | null = null;
@@ -64,7 +64,7 @@ export class RuntimeService implements OnApplicationShutdown {
     this.sweeper.unref();
   }
 
-  onApplicationShutdown(): void {
+  beforeApplicationShutdown(): void {
     if (this.sweeper) clearInterval(this.sweeper);
     for (const rt of this.runtimes.values()) rt.destroy('The platform is shutting down.');
     this.runtimes.clear();

@@ -181,7 +181,7 @@ export class LobbyRuntime {
   }
 
   /** The program's connection closed. Inside a running battery the seat gets a resume window. */
-  detach(seat: Seat, link: SeatLink, note: string): void {
+  detach(seat: Seat, link: SeatLink, note: string, quiet = false): void {
     if (this.links[seat - 1] !== link) return;
     this.links[seat - 1] = null;
     const state = this.lobby.seats[seat - 1] as Lobby['seats'][number];
@@ -200,7 +200,7 @@ export class LobbyRuntime {
       state.graceEndsAt = null;
       this.note(seat, note);
     }
-    this.host.touch(this.lobby);
+    if (!quiet) this.host.touch(this.lobby);
     this.host.notify(this.lobby.id, true);
   }
 
@@ -209,7 +209,7 @@ export class LobbyRuntime {
     const link = this.links[seat - 1];
     if (!link || link.kind === 'bot') return;
     link.close(CLOSE.CLOSED_BY_PLATFORM, reason);
-    this.detach(seat, link, reason);
+    this.detach(seat, link, reason, true);
   }
 
   private clearGrace(seat: Seat): void {
