@@ -1,6 +1,6 @@
-# Program Protocol v1 (DRAFT)
+# Program Protocol v1
 
-Status: agreed in principle (all open questions answered). The zod schemas in `packages/protocol` are the single source of truth for the frame shapes, and a test validates every JSON example in `docs/` against them.
+This is the protocol the platform implements. The zod schemas in `packages/protocol` are the single source of truth for the frame shapes, and a test validates every JSON example in `docs/` against them.
 
 ## 1. Transport
 

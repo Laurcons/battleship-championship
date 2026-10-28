@@ -15,7 +15,7 @@ test.describe('documentation', () => {
 
     await page.getByRole('navigation', { name: 'Documentation' }).getByRole('link', { name: 'Protocol' }).click();
     await expect(page.getByTestId('protocol-versions')).toContainText('/program/v1');
-    await expect(page.getByRole('heading', { name: 'Protocol v1 (DRAFT)' }).or(page.getByRole('heading', { name: /Program Protocol v1/ }))).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Program Protocol v1/ })).toBeVisible();
     await expect(page.locator('.docs-content table').first()).toBeVisible();
     await expect(page.getByRole('heading', { name: /`?hello`?/ }).first()).toBeVisible();
   });
