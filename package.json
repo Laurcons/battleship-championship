@@ -12,7 +12,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint .",
     "test:e2e": "pnpm --filter @bsc/web test:e2e",
-    "test:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e"
+    "test:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:int && pnpm test:e2e",
+    "test:int": "pnpm --filter @bsc/api test:int"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

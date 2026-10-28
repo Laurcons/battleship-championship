@@ -1,0 +1,16 @@
+# Throwaway MariaDB for integration tests. Data lives on tmpfs and disappears with the container.
+services:
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: test
+      MARIADB_DATABASE: bsc_test
+    ports:
+      - '127.0.0.1:3317:3306'
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 2s
+      timeout: 3s
+      retries: 30

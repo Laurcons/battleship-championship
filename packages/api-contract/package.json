@@ -1,0 +1,21 @@
+{
+  "name": "@bsc/api-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bsc/bots": "workspace:*",
+    "@bsc/engine": "workspace:*",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}

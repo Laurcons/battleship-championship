@@ -9,3 +9,4 @@ playwright-report/
 test-results/
 screenshots/
 .DS_Store
+apps/api/src/generated/

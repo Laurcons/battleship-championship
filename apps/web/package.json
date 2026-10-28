@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@bsc/api-contract": "workspace:*",
     "@bsc/bots": "workspace:*",
     "@bsc/engine": "workspace:*",
     "@bsc/protocol": "workspace:*",
