@@ -17,7 +17,8 @@ body { min-height: 100vh; }
 
 /* Darkly puts white text on its green, orange, blue and red solids (2.2-4:1). Use black on them. */
 .alert-success, .alert-info, .alert-warning, .alert-danger { color: #000 !important; }
-.alert-success .alert-link, .alert-info .alert-link, .alert-warning .alert-link, .alert-danger .alert-link { color: #000; text-decoration: underline; }
+.alert-success .alert-link, .alert-info .alert-link, .alert-warning .alert-link, .alert-danger .alert-link,
+.alert-success a:not(.btn), .alert-info a:not(.btn), .alert-warning a:not(.btn), .alert-danger a:not(.btn) { color: #000; text-decoration: underline; }
 .alert-success .text-body-secondary, .alert-info .text-body-secondary { color: #000 !important; }
 .badge.bg-success, .badge.bg-warning, .badge.bg-danger { color: #000 !important; }
 .btn-success, .btn-warning, .btn-danger {

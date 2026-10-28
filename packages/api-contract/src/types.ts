@@ -187,7 +187,9 @@ export type ApiErrorCode =
   | 'forbidden'
   | 'not_found'
   | 'conflict'
-  | 'validation';
+  | 'validation'
+  | 'internal'
+  | 'unavailable';
 
 export class ApiError extends Error {
   constructor(

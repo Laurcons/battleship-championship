@@ -3,6 +3,8 @@ import { ApiError, type ApiErrorCode } from '@bsc/api-contract';
 import type { Response } from 'express';
 
 const STATUS: Record<ApiErrorCode, number> = {
+  internal: 500,
+  unavailable: 503,
   invalid_credentials: 401,
   unauthenticated: 401,
   forbidden: 403,
