@@ -238,7 +238,7 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 
 `error.code` values for gameplay errors (in `turn.error` / `place.error`): `out_of_bounds`, `already_fired`, `bad_fleet`, `ship_out_of_bounds`, `ships_overlap`, `ships_touching`, `bad_shape`.
 
-Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`.
+Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `auth_failed`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
 
 WebSocket close codes (after a fatal condition at connect time):
 

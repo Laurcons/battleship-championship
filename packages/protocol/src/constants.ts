@@ -28,6 +28,11 @@ export const STANDALONE_ERROR_CODES = [
   'unexpected_message',
   'frame_too_large',
   'rate_limited',
+  // Only sent just before the connection is closed during the handshake; the close code says the same.
+  'auth_failed',
+  'ruleset_mismatch',
+  'lobby_full',
+  'hello_timeout',
 ] as const;
 export type StandaloneErrorCode = (typeof STANDALONE_ERROR_CODES)[number];
 

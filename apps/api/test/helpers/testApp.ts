@@ -104,3 +104,23 @@ export async function startTestApp(
   }
   return { app, config, store, url, client: make, people, close: () => app.close() };
 }
+
+/** Gives a participant a token (as they would on the Account page) and returns it. */
+export async function tokenFor(client: Client): Promise<string> {
+  const r = await client.post('/api/me/token');
+  if (r.status !== 201) throw new Error(`token creation failed: ${JSON.stringify(r.body)}`);
+  return r.body.token as string;
+}
+
+export const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Polls until `fn` returns a truthy value. */
+export async function eventually<T>(fn: () => Promise<T | false | undefined | null> | T | false | undefined | null, ms = 8000, what = 'condition'): Promise<T> {
+  const end = Date.now() + ms;
+  for (;;) {
+    const v = await fn();
+    if (v) return v;
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await wait(15);
+  }
+}

@@ -13,11 +13,13 @@ import { AuthService } from './platform/auth.service.js';
 import { LiveHub } from './platform/live-hub.js';
 import { LobbiesService } from './platform/lobbies.service.js';
 import { RulesetsService } from './platform/rulesets.service.js';
+import { RuntimeService } from './platform/runtime/runtime.service.js';
 import { SettingsService } from './platform/settings.service.js';
 import { CLOCK, systemClock, type Clock } from './platform/util.js';
 import { MemoryStore } from './store/memory.js';
 import { PrismaStore } from './store/prisma.js';
 import { STORE, type Store } from './store/store.js';
+import { ProgramGateway } from './ws/program.gateway.js';
 
 /** Loads persisted state in dependency order at startup, and releases resources at shutdown. */
 @Injectable()
@@ -32,6 +34,7 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
     @Inject(LobbiesService) private readonly lobbies: LobbiesService,
     @Inject(LiveHub) private readonly hub: LiveHub,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(RuntimeService) private readonly runtime: RuntimeService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -40,6 +43,7 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
     await this.rulesets.init();
     await this.accounts.init();
     await this.lobbies.init();
+    this.runtime.init();
     await this.auth.purgeExpired();
     this.purgeTimer = setInterval(() => void this.auth.purgeExpired().catch(() => undefined), 3_600_000);
     this.purgeTimer.unref();
@@ -83,6 +87,8 @@ export class AppModule {
         AuthService,
         LobbiesService,
         LiveHub,
+        RuntimeService,
+        ProgramGateway,
         BootService,
       ],
     };

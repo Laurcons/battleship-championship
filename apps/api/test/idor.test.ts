@@ -55,6 +55,10 @@ const rows: Row[] = [
   { method: 'GET', path: ({ lobby }) => `/api/lobbies/${lobby}/frames/3`, expect: { anonymous: 401, admin: 404, Alice: 404, Bruno: 404, Chen: 404 } },
   { method: 'POST', path: () => '/api/lobbies', body: { opponent: { kind: 'bot', bot: 'random' }, rulesetId: 'classic-10x10' }, expect: { anonymous: 401, admin: 403, Alice: 201, Bruno: 201, Chen: 201 } },
   { method: 'POST', path: () => '/api/me/token/notice/ack', expect: { anonymous: 401, admin: 403, Alice: 204, Bruno: 204, Chen: 204 } },
+  // Actions in a lobby: its players only. The lobby is waiting for programs, so players get a 409 (a valid request that cannot run yet).
+  { method: 'POST', path: ({ lobby }) => `/api/lobbies/${lobby}/start`, body: { games: 1 }, expect: { anonymous: 401, admin: 403, Alice: 409, Bruno: 409, Chen: 404 } },
+  { method: 'POST', path: ({ lobby }) => `/api/lobbies/${lobby}/restart-game`, expect: { anonymous: 401, admin: 403, Alice: 409, Bruno: 409, Chen: 404 } },
+  { method: 'POST', path: ({ lobby }) => `/api/lobbies/${lobby}/reset-series`, expect: { anonymous: 401, admin: 403, Alice: 409, Bruno: 409, Chen: 404 } },
   // Admin-only.
   { method: 'GET', path: () => '/api/admin/participants', expect: { anonymous: 401, admin: 200, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'POST', path: () => '/api/admin/participants', body: { name: 'Zed' }, expect: { anonymous: 401, admin: 201, Alice: 403, Bruno: 403, Chen: 403 } },

@@ -42,17 +42,11 @@ export interface LiveGame {
   times: number[];
 }
 
-export interface LobbyRuntimeHandle {
-  isRunning(): boolean;
-  stop(): void;
-}
-
 /** A lobby as the platform holds it in memory: the stored row plus connection and live-game state. */
 export class Lobby {
   readonly seats: [SeatState, SeatState];
   series: SeriesRow[] = [];
   live: LiveGame | null = null;
-  runtime: LobbyRuntimeHandle | null = null;
 
   constructor(
     public row: LobbyRow,

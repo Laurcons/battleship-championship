@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Post, Query, Req, Res } from '@nestjs/common';
 import {
   createLobbySchema,
+  startSeriesSchema,
   ApiError,
   type Frame,
   type GameDetail,
@@ -15,6 +16,7 @@ import type { Request, Response } from 'express';
 import { CONFIG, type Config } from '../config.js';
 import { AuthService } from '../platform/auth.service.js';
 import { LiveHub } from '../platform/live-hub.js';
+import { RuntimeService } from '../platform/runtime/runtime.service.js';
 import { LobbiesService } from '../platform/lobbies.service.js';
 import type { Viewer } from '../platform/policy.js';
 import { Access, CurrentViewer, ZodPipe, type AuthedRequest } from './context.js';
@@ -29,6 +31,7 @@ export class LobbiesController {
     @Inject(LobbiesService) private readonly lobbies: LobbiesService,
     @Inject(LiveHub) private readonly hub: LiveHub,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(RuntimeService) private readonly runtime: RuntimeService,
     @Inject(CONFIG) private readonly config: Config,
   ) {}
 
@@ -59,6 +62,27 @@ export class LobbiesController {
   @Access('any')
   async remove(@CurrentViewer() viewer: Viewer, @Param('id') id: string): Promise<void> {
     await this.lobbies.delete(viewer, id);
+  }
+
+  @Post(':id/start')
+  @HttpCode(200)
+  @Access('participant')
+  start(@CurrentViewer() viewer: Viewer, @Param('id') id: string, @Body(new ZodPipe(startSeriesSchema)) body: { games: number }): Promise<LobbySummary> {
+    return this.runtime.start(viewer, id, body.games);
+  }
+
+  @Post(':id/restart-game')
+  @HttpCode(200)
+  @Access('participant')
+  restartGame(@CurrentViewer() viewer: Viewer, @Param('id') id: string): Promise<LobbySummary> {
+    return this.runtime.restartGame(viewer, id);
+  }
+
+  @Post(':id/reset-series')
+  @HttpCode(200)
+  @Access('participant')
+  resetSeries(@CurrentViewer() viewer: Viewer, @Param('id') id: string): Promise<LobbySummary> {
+    return this.runtime.resetSeries(viewer, id);
   }
 
   @Get(':id/series')
