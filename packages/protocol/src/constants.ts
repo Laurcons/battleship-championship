@@ -29,6 +29,7 @@ export const STANDALONE_ERROR_CODES = [
   'frame_too_large',
   'rate_limited',
   // Only sent just before the connection is closed during the handshake; the close code says the same.
+  'bad_hello',
   'auth_failed',
   'ruleset_mismatch',
   'lobby_full',

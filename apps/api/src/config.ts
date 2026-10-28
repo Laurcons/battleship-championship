@@ -35,6 +35,8 @@ const schema = z.object({
   PING_INTERVAL_MS: int(15_000),
   PONG_TIMEOUT_MS: int(30_000),
   MAX_PROGRAM_CONNECTIONS: int(100),
+  /** Requests per minute per client address before the API answers 429 (generous: friends may share an address). */
+  API_RATE_LIMIT: int(1200),
   LOGIN_ATTEMPTS: int(5),
   LOGIN_WINDOW_MS: int(60_000),
 });
@@ -66,6 +68,7 @@ export interface Config {
     maxProgramConnections: number;
   };
   loginRate: { attempts: number; windowMs: number };
+  apiRatePerMinute: number;
 }
 
 export const CONFIG = Symbol('CONFIG');
@@ -107,5 +110,6 @@ export function loadConfig(source: Record<string, string | undefined> = process.
       maxProgramConnections: env.MAX_PROGRAM_CONNECTIONS,
     },
     loginRate: { attempts: env.LOGIN_ATTEMPTS, windowMs: env.LOGIN_WINDOW_MS },
+    apiRatePerMinute: env.API_RATE_LIMIT,
   };
 }

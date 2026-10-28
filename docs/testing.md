@@ -1,4 +1,4 @@
-# Testing Strategy (DRAFT)
+# Testing Strategy
 
 Nothing counts as done until it has tests, and a bug fix starts with a failing regression test. All test layers run from the repo root with `pnpm`, headless, with no manual setup beyond Docker.
 
@@ -11,44 +11,40 @@ Nothing counts as done until it has tests, and a bug fix starts with a failing r
 
 | Command | What it runs |
 |---|---|
-| `pnpm test` | Unit and component tests (engine, protocol, API units, web components). Seconds, no Docker. |
-| `pnpm test:int` | API integration tests against a real MariaDB with real WebSocket clients. |
-| `pnpm test:e2e` | Playwright browser tests against the real running stack. |
-| `pnpm test:all` | Everything above plus lint and typecheck. |
-| `pnpm test:soak` | Long-running battery and concurrency checks. Not part of `test:all`. |
+| `pnpm test` | Unit and API tests: engine, protocol, shared contract, the whole API on in-memory storage (including real WebSocket programs, misbehavior, resume, redaction, the access matrix, fuzzing, the example programs), web components. Seconds to a minute, no Docker. |
+| `pnpm test:int` | The same store contract, and the runtime, against a real MariaDB (Docker, started and stopped by the script). |
+| `pnpm test:e2e` | Playwright browser tests of the interface on the in-browser mock. |
+| `pnpm test:e2e:real` | Playwright browser tests against the real stack: the API serves the built web app and the programs are real WebSocket clients. |
+| `pnpm test:soak` | A 1000-game battery with memory sampling and ten concurrent lobbies, on MariaDB. Slow; not part of `test:all`. |
+| `pnpm test:all` | Lint, typecheck and everything above except the soak test. |
+
+Set `EXAMPLE_PYTHON` to a Python with `websockets` installed to also run the Python example program in `pnpm test`.
 
 ## Layers
 
-1. **Engine (unit and property tests).** Vitest and fast-check, with seeded randomness. Covers placement validity, the touching rule, shots, sunk detection, win detection, extra turns and alternating first mover. Property tests include: any random legal game terminates, replaying the event log reproduces the state exactly, and a seat view never contains hidden opponent data.
-2. **Protocol.** Every schema has golden fixtures. **Every JSON example in `docs/` is extracted and validated against the schemas**, so the documentation cannot drift from the implementation.
-3. **API integration.** A real NestJS app with real MariaDB and real `ws` clients, covering:
-   - bot-vs-bot batteries end to end and the stored aggregates;
-   - ruleset mismatch, first-empty-seat allocation and self-play;
-   - reset at every phase, including mid-turn;
-   - resume within the grace period (with and without `session_id`) and expiry of the grace period;
-   - timeouts, strikes, `stopOnInfraction` and stale `rid` handling;
-   - server restart voiding the game and recovering series progress;
-   - ruleset immutability and the rule that the last enabled ruleset cannot be disabled.
-   Platform constants are shortened by env vars so these tests run quickly without fake clocks.
-4. **Security.**
-   - A table-driven **IDOR matrix**: every HTTP route, SSE stream and WebSocket action is called as each role (anonymous, owner, other participant, admin) and checked against the expected outcome.
-   - `auth_failed` is indistinguishable for a wrong token and a wrong lobby.
-   - Replacing a token drops active connections, and a participant without a token cannot connect a program.
-   - Raw SSE and history responses in restricted mode are scanned for the opponent's layout.
-   - Login rate limits, frame-size limits and the abuse limiter.
-   - Response headers (CSP, cookie flags).
-5. **Chaos and fuzz.** A chaos bot sends garbage frames, double and late replies and mid-turn disconnects, and the platform must stay up and keep other lobbies unaffected. Parsers are fuzzed with fast-check.
+1. **Engine (unit and property tests).** Vitest and fast-check, with seeded randomness. Placement validity, the touching rule, shots, sunk detection, win detection, extra turns, alternating first mover; any random legal game terminates, replay reproduces the state, a seat view never contains hidden opponent data.
+2. **Protocol.** Zod schemas, and **every JSON example in `docs/` is extracted and validated against them**, so the documentation cannot drift from the implementation. The frame builders are exercised on random games under every ruleset option: each frame validates, has the right dimensions, never reveals the opponent, and never mentions sunk ships when the ruleset does not announce them. The parser never throws, whatever it is given.
+3. **Store contract.** One suite of behaviors (unique names, atomic game recording, cascading deletes, ordering, exact round-trips of event logs including emoji) runs against both the in-memory store and MariaDB.
+4. **API.** A real NestJS application with real HTTP and real `ws` clients, covering:
+   - login (shared password, name, admin), session fixation, cookie flags, login and API rate limits, forwarded-address handling;
+   - participants, tokens (created on demand, shown once, hashed, replaced, notices), rulesets (validation, default, enable/disable guards), settings and the audit log;
+   - lobbies: creation rules, god-mode choice and policy, caps, deletion, restoring after a restart;
+   - the handshake: wrong token, unknown lobby and foreign lobby are indistinguishable; ruleset mismatch; full lobby; timeouts; binary and oversized frames; garbage;
+   - games: full games and batteries between two programs and against practice bots, alternating first mover, self-play, atomic completion;
+   - misbehavior: invalid moves and placements as strikes with the re-issued request, forfeit at the maximum, move timeout, stale replies, unsolicited messages, abuse limiter, repeat shots that are wasted;
+   - resilience: a dropped program is resumed inside the grace period (with and without `session_id`), expires into a forfeit or an aborted battery, restart and reset of games and batteries, token replacement, lobby deletion, idle expiry, platform restart in the middle of a battery, graceful shutdown with live connections;
+   - information hiding: a restricted viewer is never sent the opponent layout, in the live stream or the history, until the game ends.
+5. **Security.**
+   - A table-driven **access matrix**: every route is called as anonymous, admin, both players and an outsider and checked against the expected status; a coverage check fails if a route has no row.
+   - Cross-site requests and non-JSON bodies are refused; malformed and oversized bodies get JSON errors, never stack traces.
+   - Tokens never appear in any response or frame log.
+   - Hostile input: random bodies at every write route and odd path parameters never produce a server error; hostile WebSocket clients cannot disturb a game in another lobby.
 6. **UI component tests.** Vitest with React Testing Library for the board, move list, before/after scrubber, forms and the heatmaps.
-7. **End-to-end UI tests.** Playwright (headless Chromium) against the real stack, using the practice bots and the example programs as opponents:
-   - participant login (shared password, name dropdown) and the admin login;
-   - admin creates, enables and disables rulesets, and the god-mode toggle affects only new lobbies;
-   - creating a lobby, watching a live game, and clicking a history item to see the board before and after;
-   - a battery with the aggregate results page;
-   - the restart buttons, the account page (no token yet, created once, replaced) and the notice for a token replaced elsewhere;
-   - an XSS payload in a program name renders inert;
-   - the docs pages render and the example downloads work.
-   Screenshots are saved for each key page.
-8. **Soak (`test:soak`).** A 1000-game battery with memory sampling, and 10 concurrent lobbies.
+7. **End-to-end UI tests.** Playwright (headless Chromium), with axe accessibility checks and screenshots:
+   - on the mock: every participant and admin flow, including simulated misbehavior;
+   - on the real stack: tokens made on the Account page, two participants with real programs playing a battery, practice bots, restricted views seen from three browsers, resume with the countdown, aborted batteries, infractions in the history, restart and reset from the interface, the admin policy, the audit log, and axe on real pages.
+8. **Soak.** A 1000-game battery (heap growth, bounded frame log) and ten concurrent lobbies.
+9. **Example programs.** The TypeScript example (and the Python one when available) play a battery against each other on a live platform with zero infractions.
 
 ## Manual testing
 

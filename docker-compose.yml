@@ -1,0 +1,32 @@
+# A production-like stack on one machine: the platform and its database.
+#   cp .env.example .env   (fill in the secrets), then: docker compose up --build
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: battleships
+      MARIADB_USER: battleships
+      MARIADB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MARIADB_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://battleships:${DB_PASSWORD}@db:3306/battleships
+    ports:
+      - '3000:3000'
+
+volumes:
+  db-data:

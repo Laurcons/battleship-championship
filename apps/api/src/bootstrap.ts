@@ -5,7 +5,8 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import express from 'express';
 import { AppModule, type AppOptions } from './app.module.js';
-import { CsrfMiddleware, SessionMiddleware, noStore, securityHeaders } from './http/middleware.js';
+import { CsrfMiddleware, SessionMiddleware, apiRateLimit, noStore, securityHeaders } from './http/middleware.js';
+import { systemClock } from './platform/util.js';
 import { AuthService } from './platform/auth.service.js';
 
 /** Builds the application (without listening), so tests and `main` share one configuration. */
@@ -19,6 +20,7 @@ export async function createApp(options: AppOptions): Promise<NestExpressApplica
   app.set('trust proxy', config.trustProxyHops);
   app.use(securityHeaders);
   app.use('/api', noStore);
+  app.use('/api', apiRateLimit(config.apiRatePerMinute, options.clock ?? systemClock));
   app.use(express.json({ limit: '32kb' }));
   const csrf = new CsrfMiddleware(config);
   app.use('/api', (req: express.Request, res: express.Response, next: express.NextFunction) => csrf.use(req, res, next));

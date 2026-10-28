@@ -94,7 +94,7 @@ describe('access matrix', () => {
 
   it('covers every route of the application', () => {
     // Login and logout are public by design and tested in http.test.ts; token creation in accounts.test.ts.
-    const elsewhere = ['POST /api/auth/gate', 'POST /api/auth/participant', 'POST /api/auth/admin', 'POST /api/auth/logout', 'POST /api/me/token', 'POST /api/me/token/replace'];
+    const elsewhere = ['GET /api/health', 'POST /api/auth/gate', 'POST /api/auth/participant', 'POST /api/auth/admin', 'POST /api/auth/logout', 'POST /api/me/token', 'POST /api/me/token/replace'];
     const pattern = (method: string, path: string) =>
       `${method} ${path.replace(/\/games\/[^/]+$/, '/games/:id').replace(/\/frames\/\d$/, '/frames/:id').replace(/\/admin\/(participants|rulesets)\/[^/]+/, '/admin/$1/:id').replace(/\/lobbies\/(LOBBY|:id)/, '/lobbies/:id').replace(/\/(rulesets)\/:id/, '/$1/:id')}`;
     const covered = new Set(rows.map((r) => pattern(r.method, r.path({ lobby: 'LOBBY', alice: 'ALICE' }))));

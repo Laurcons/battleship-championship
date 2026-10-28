@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/dist-real
+**/test-results
+**/playwright-report
+**/screenshots
+**/.env
+**/.env.*
+.git

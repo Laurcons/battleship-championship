@@ -5,6 +5,6 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     include: ['test/**/*.test.ts'],
-    exclude: ['test/**/*.int.test.ts', 'node_modules/**'],
+    exclude: ['test/**/*.int.test.ts', 'test/**/*.soak.test.ts', 'node_modules/**'],
   },
 });

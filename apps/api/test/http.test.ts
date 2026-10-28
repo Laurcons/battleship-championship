@@ -117,3 +117,25 @@ describe('transport hardening', () => {
     expect(r.body.error.code).toBe('not_found');
   });
 });
+
+describe('health and flood protection', () => {
+  it('answers a health check without logging in', async () => {
+    expect(await t.client().get('/api/health')).toMatchObject({ status: 200, body: { ok: true } });
+  });
+
+  it('caps requests per client address and says when to retry', async () => {
+    const limited = await startTestApp({ env: { API_RATE_LIMIT: '30' } });
+    try {
+      const c = limited.client();
+      const statuses: number[] = [];
+      for (let i = 0; i < 40; i++) statuses.push((await c.get('/api/session')).status);
+      expect(statuses.filter((s) => s === 200).length).toBeGreaterThanOrEqual(25);
+      const blocked = await c.get('/api/session');
+      expect(blocked.status).toBe(429);
+      expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+      expect(blocked.body.error.code).toBe('rate_limited');
+    } finally {
+      await limited.close();
+    }
+  });
+});

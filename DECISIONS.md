@@ -221,10 +221,23 @@ These are stated in the docs (a dedicated "Rules for programs" page), so every p
 
 ## 19. Real implementation (second build step)
 
-- `packages/protocol` holds the zod schemas for every frame, the frame builders (`placeFrame`, `turnFrame`, `gameOverFrame`), the wire ruleset mapping, lobby codes and token generation. API, bots, mock and tests all use it. A test validates every JSON example in `docs/` against the schemas.
-- Build order: (1) protocol package, (2) API core (NestJS + Prisma/MariaDB, HTTP routes implementing `ApiClient`), (3) game runtime (WebSocket gateway, lobby orchestration, practice bots, SSE), (4) HTTP `ApiClient` in the web app and the Playwright suite against the real stack, (5) integration, security and chaos tests, deployment files and README, (6) example bots against the real server.
-- In the mock, seat 1 is the lobby creator and starts game 1. The real platform uses the rule agreed earlier (the first program to connect takes the first empty seat); the mock differs only because its programs are simulated.
-- Tokens are `bsc_` plus 32 characters from `[A-Za-z0-9]`, drawn without modulo bias from a cryptographically secure source.
+Built in this order: protocol package, API core, game runtime, HTTP client for the web app with end-to-end tests on the real stack, hardening and deployment files, example programs checked against the real server.
+
+- `packages/protocol` holds the zod schemas for every frame, the frame builders, the wire ruleset mapping, lobby codes and token generation. API, bots, mock and tests all use it. A test validates every JSON example in `docs/` against the schemas. `packages/api-contract` holds the types and request schemas shared by API and web.
+- **Seats belong to participants.** The creator owns seat 1 and starts game 1 (in the mock and on the real platform). A connecting program takes the first seat *of its own participant* that has no program; in a lobby between two participants that is simply their seat, in self-play it is the first empty of two. If a participant owns one seat and a program still looks connected on it, the new connection replaces the old one (a restarted program must not wait for the dead socket to time out). A valid `session_id` reclaims exactly its seat.
+- **Raw `ws`, not `@nestjs/platform-ws`.** The program endpoint is a `ws` server attached to Nest's HTTP server, because the protocol uses `type` rather than Nest's `event` envelope and needs control of framing, heartbeats and close codes. Everything else is NestJS.
+- **Sessions** are random cookies (HttpOnly, SameSite=Lax, Secure in production), stored hashed in the database so a deploy does not log anyone out. Logging in issues a new session id. State-changing requests must be JSON and must come from the site's own origin. Passwords (shared and admin) are scrypt hashes in environment variables; plain-text variants are refused in production.
+- **Tokens** are `bsc_` plus 32 characters from `[A-Za-z0-9]`, drawn without modulo bias from a cryptographically secure source. The database stores the SHA-256 and the last four characters.
+- **Every route declares its access level** (public, any user, participant, admin) and a route without a declaration is refused. A test calls every route as every kind of caller and fails if a route is missing from the table.
+- **Game completion is atomic for viewers**: the game, the series counters and the heatmap are stored in one transaction, and the lobby shows the game as finished only after that.
+- **The event loop is shared fairly**: practice bots answer through the event loop (one yield per move), so a long battery never starves other requests.
+- Nest is pinned to 12.2.0 because 12.3.x was younger than the package manager's minimum release age.
+
+Deviations from earlier decisions, to be confirmed:
+
+- **Raw frame logs live in memory only** (a ring buffer of 2000 frames per program, as decided), not in the database, so they are lost when the platform restarts and there is no seven-day expiry to implement. Everything else (games, series, audit log) is stored.
+- **`stopOnInfraction`** (end a battery at the first infraction) is not implemented: the mock and the lobby settings never offered it.
+- Games that are voided (restart) or interrupted are stored with status `void`; a game in progress when the platform stops is not stored at all.
 
 ## 20. Out of scope for now
 

@@ -2,6 +2,7 @@ import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { CONFIG, type Config } from '../config.js';
 import { AuthService } from '../platform/auth.service.js';
+import { RateLimiter, type Clock } from '../platform/util.js';
 import { COOKIE_NAME, parseCookies, type AuthedRequest } from './context.js';
 
 /** Resolves the session cookie to a viewer (or none) before any handler runs. */
@@ -79,4 +80,20 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
 export function noStore(_req: Request, res: Response, next: NextFunction): void {
   res.setHeader('Cache-Control', 'no-store');
   next();
+}
+
+/** A generous per-address cap on API requests, so one misbehaving client cannot starve the rest. */
+export function apiRateLimit(perMinute: number, clock: Clock) {
+  const limiter = new RateLimiter(perMinute, 60_000, clock);
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = req.ip ?? 'unknown';
+    const retryAfter = limiter.retryAfterSec(key);
+    if (retryAfter > 0) {
+      res.setHeader('Retry-After', String(retryAfter));
+      res.status(429).json({ error: { code: 'rate_limited', message: 'Too many requests. Slow down a little.', details: { retryAfterSec: retryAfter } } });
+      return;
+    }
+    limiter.hit(key);
+    next();
+  };
 }

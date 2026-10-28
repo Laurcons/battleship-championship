@@ -23,6 +23,13 @@ export class AuthController {
     });
   }
 
+  @Get('health')
+  @Access('public')
+  async health(): Promise<{ ok: true }> {
+    await this.auth.purgeExpired(); // touches the store, so a dead database shows up here
+    return { ok: true };
+  }
+
   @Get('session')
   @Access('public')
   async session(@SessionCookie() cookie: string | undefined): Promise<Session | null> {

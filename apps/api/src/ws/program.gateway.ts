@@ -214,9 +214,13 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
 
   private onFirstFrame(link: WsLink, text: string): void {
     const parsed = parseInbound(text);
-    if (!parsed.ok || parsed.frame.type !== 'hello') {
-      const message = parsed.ok ? 'The first frame must be "hello".' : parsed.message;
-      return this.fatal(link, parsed.ok ? 'unexpected_message' : parsed.code, message, CLOSE.BAD_REQUEST);
+    if (parsed.ok && parsed.frame.type !== 'hello') {
+      return this.fatal(link, 'unexpected_message', 'The first frame must be "hello".', CLOSE.BAD_REQUEST);
+    }
+    if (!parsed.ok) {
+      // A well-formed JSON object of a known type that fails its schema is, here, an invalid hello.
+      const code = parsed.code === 'bad_shape' ? 'bad_hello' : parsed.code;
+      return this.fatal(link, code, parsed.message, CLOSE.BAD_REQUEST);
     }
     this.hello(link, parsed.frame, text);
   }

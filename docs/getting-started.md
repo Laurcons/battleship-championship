@@ -42,6 +42,7 @@ The example programs (see *Examples*) read three environment variables: `BSC_URL
 ## If something goes wrong
 
 - **Your program crashes or loses the connection.** You have a *resume window* (60 s). Reconnect with `hello` and the platform sends you the situation again (see *Reset, reconnect and resume* in the protocol). After the window, a single game is lost and a battery is aborted.
+- **The platform restarts** (a deploy, for example). Your connection closes, the game in progress is voided, and a running battery keeps its results and waits for you. Reconnect with `hello` (retry every few seconds, with a short pause between attempts) and the battery carries on with a fresh `place`. A well-behaved program reconnects on its own.
 - **You replace your token** (on the *Account* page, for example if you lost it). All connections using the old token are closed immediately.
 - **The lobby is restarted** (from the web interface). Your program receives `reset` at any moment and must forget the current game.
 

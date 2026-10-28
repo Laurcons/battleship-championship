@@ -226,6 +226,7 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 
 - The server can send `reset` at any time. After `reset`, all pending `rid`s are void.
 - **`session_id` is optional.** `welcome` issues one. If the connection drops while the process is still alive, the program can reconnect with `hello.session_id` to reclaim **exactly the same seat**. This matters only for self-play lobbies. A restarted program has lost its `session_id` and simply sends `hello` without it, taking the first empty seat. An unknown or expired `session_id` is treated as absent, not as an error.
+- **Which seat you get.** A seat belongs to the participant who owns it (for a lobby between two participants, each owns one; in a self-play lobby you own both). A connecting program takes the first seat of its participant without a program. If the participant owns only one seat and a program still seems to be connected on it (for example the old process died and the platform has not noticed yet), the new connection **replaces** the old one, which is closed with code 4000. In a self-play lobby with both seats taken, a further connection is refused with 4409.
 - When the platform accepts a reconnect during `grace_ms`:
   1. It replies with `welcome` with `"resumed": true`.
   2. If a request was pending for that seat, it immediately re-issues it (`place` or `turn`) with a **new `rid`**. Because `turn` already carries the full state, no extra "resume" payload is needed. Resuming and normal play use the same code path.
@@ -238,7 +239,7 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 
 `error.code` values for gameplay errors (in `turn.error` / `place.error`): `out_of_bounds`, `already_fired`, `bad_fleet`, `ship_out_of_bounds`, `ships_overlap`, `ships_touching`, `bad_shape`.
 
-Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `auth_failed`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
+Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `bad_hello`, `auth_failed`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
 
 WebSocket close codes (after a fatal condition at connect time):
 
