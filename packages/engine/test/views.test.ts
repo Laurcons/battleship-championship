@@ -68,7 +68,7 @@ describe('seatView', () => {
       }),
       { numRuns: 60 },
     );
-  });
+  }, 30_000); // replays every prefix of 60 games: slow when the machine is busy
 });
 
 describe('godView', () => {
