@@ -1,0 +1,129 @@
+/* App styles on top of Bootswatch Darkly. Colors come from Bootstrap's CSS variables. */
+
+body { min-height: 100vh; }
+
+/* Darkly's navbar text is too faint on its blue background (WCAG AA needs 4.5:1). */
+.navbar {
+  --bs-navbar-color: rgba(255, 255, 255, 0.9);
+  --bs-navbar-hover-color: #fff;
+  --bs-navbar-active-color: #fff;
+}
+
+/* Darkly's info blue and danger red are just under 4.5:1 with its default text colors. */
+.btn-info { --bs-btn-color: #000; --bs-btn-hover-color: #000; --bs-btn-active-color: #000; --bs-btn-disabled-color: #000; }
+.badge.bg-info.text-dark, .badge.text-bg-info { color: #000 !important; }
+.btn-outline-danger { --bs-btn-color: #f1796b; --bs-btn-border-color: #f1796b; --bs-btn-hover-color: #000; --bs-btn-hover-bg: #f1796b; --bs-btn-hover-border-color: #f1796b; }
+.text-danger { color: #f1796b !important; }
+
+/* Darkly puts white text on its green, orange, blue and red solids (2.2-4:1). Use black on them. */
+.alert-success, .alert-info, .alert-warning, .alert-danger { color: #000 !important; }
+.alert-success .alert-link, .alert-info .alert-link, .alert-warning .alert-link, .alert-danger .alert-link { color: #000; text-decoration: underline; }
+.alert-success .text-body-secondary, .alert-info .text-body-secondary { color: #000 !important; }
+.badge.bg-success, .badge.bg-warning, .badge.bg-danger { color: #000 !important; }
+.btn-success, .btn-warning, .btn-danger {
+  --bs-btn-color: #000; --bs-btn-hover-color: #000; --bs-btn-active-color: #000; --bs-btn-disabled-color: #000;
+}
+
+/* Muted help text and inline code, lifted above 4.5:1 on the dark surfaces. */
+.form-text, .text-body-secondary, .text-muted { color: #adb5bd !important; }
+code { color: #f5b041; }
+pre code { color: inherit; }
+
+/* Darkly's secondary outline is too dim on its dark background. */
+.btn-outline-secondary {
+  --bs-btn-color: #ced4da;
+  --bs-btn-border-color: #7b8288;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #6c757d;
+  --bs-btn-hover-border-color: #6c757d;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #6c757d;
+  --bs-btn-disabled-color: #8a9096;
+  --bs-btn-disabled-border-color: #5c636a;
+}
+.page-title { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.mono { font-family: var(--bs-font-monospace); }
+.cursor-pointer { cursor: pointer; }
+.small-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); }
+
+/* ---- Board ---- */
+.board { display: inline-block; user-select: none; }
+.board-grid { display: grid; gap: 2px; }
+.board-axis { font-size: .62rem; color: var(--bs-secondary-color); display: flex; align-items: center; justify-content: center; }
+.cell {
+  width: var(--cell, 30px);
+  height: var(--cell, 30px);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px;
+  font-size: calc(var(--cell, 30px) * .5);
+  line-height: 1;
+  background: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  position: relative;
+}
+.cell-miss { background: transparent; box-shadow: inset 0 0 0 1px var(--bs-border-color); color: var(--bs-secondary-color); }
+.cell-ship { background: #375a7f; color: #fff; }
+.cell-hit { background: #c0392b; color: #fff; font-weight: 700; }
+.cell-sunk { background: #6c1d15; color: #fff; font-weight: 700; box-shadow: inset 0 0 0 2px #e74c3c; }
+.cell-focus { outline: 3px solid #f39c12; outline-offset: 1px; z-index: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: .75rem; font-size: .8rem; color: var(--bs-secondary-color); }
+.legend .cell { width: 18px; height: 18px; font-size: 11px; display: inline-flex; vertical-align: middle; margin-right: .3rem; }
+
+/* ---- Move list ---- */
+.move-list { max-height: 460px; overflow-y: auto; }
+.move-item { display: flex; gap: .5rem; align-items: baseline; padding: .35rem .6rem; border-left: 3px solid transparent; cursor: pointer; font-size: .875rem; }
+.move-item:hover { background: var(--bs-tertiary-bg); }
+.move-item.selected { background: var(--bs-secondary-bg); border-left-color: var(--bs-info); }
+.move-item.problem { border-left-color: #f39c12; }
+.move-item.problem .move-text { color: #f5b041; }
+.move-item .move-ms { margin-left: auto; color: var(--bs-secondary-color); font-size: .75rem; white-space: nowrap; }
+.move-item .move-no { width: 2.4rem; text-align: right; color: var(--bs-secondary-color); font-size: .75rem; flex-shrink: 0; }
+
+/* ---- Heatmap ---- */
+.heatmap { display: inline-grid; gap: 1px; }
+.heat-cell { width: var(--cell, 26px); height: var(--cell, 26px); display: flex; align-items: center; justify-content: center; font-size: .6rem; border-radius: 2px; }
+
+/* ---- Win-rate bar with confidence interval ---- */
+.ci-track { position: relative; height: 14px; background: var(--bs-tertiary-bg); border-radius: 7px; }
+.ci-range { position: absolute; top: 3px; bottom: 3px; background: rgba(52, 152, 219, .45); border-radius: 4px; }
+.ci-point { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; border-radius: 2px; }
+.ci-mid { position: absolute; top: -3px; bottom: -3px; left: 50%; border-left: 1px dashed var(--bs-secondary-color); }
+
+/* ---- Frame log ---- */
+.frame-log { font-family: var(--bs-font-monospace); font-size: .75rem; max-height: 440px; overflow: auto; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .375rem; }
+.frame-row { display: flex; gap: .5rem; padding: .15rem .5rem; white-space: pre-wrap; word-break: break-all; cursor: pointer; }
+.frame-row:hover { background: var(--bs-tertiary-bg); }
+.frame-time { color: var(--bs-secondary-color); flex-shrink: 0; }
+.frame-dir { width: 1.2rem; flex-shrink: 0; font-weight: 700; }
+.frame-to_program .frame-dir { color: #3498db; }
+.frame-from_program .frame-dir { color: #00bc8c; }
+.frame-note { color: #f5b041; }
+
+/* ---- Docs ---- */
+.docs-content table { width: 100%; margin-bottom: 1rem; border-collapse: collapse; }
+.docs-content th, .docs-content td { border: 1px solid var(--bs-border-color); padding: .35rem .6rem; vertical-align: top; }
+.docs-content pre { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .375rem; padding: .75rem; overflow-x: auto; }
+.docs-content code { color: #f5b041; }
+.docs-content pre code { color: inherit; }
+.docs-content h2 { margin-top: 2rem; border-bottom: 1px solid var(--bs-border-color); padding-bottom: .3rem; }
+.docs-content h3 { margin-top: 1.5rem; }
+
+/* ---- Mock panel ---- */
+.mock-fab { position: fixed; right: 1rem; bottom: 1rem; z-index: 1050; }
+
+/* Darkly draws the unchecked switch knob white on a white track, so it vanishes. */
+.form-switch .form-check-input:not(:checked),
+.form-switch .form-check-input:not(:checked):focus {
+  background-color: #444;
+  border-color: #7b8288;
+  --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ced4da'/%3e%3c/svg%3e");
+}
+
+/* Label/value list for rulesets: a plain grid, so nothing hangs outside its card. */
+.ruleset-details { display: grid; grid-template-columns: max-content 1fr; column-gap: 1.5rem; row-gap: .5rem; margin: 0; font-size: .875rem; align-items: start; }
+.ruleset-details dt { font-weight: 400; color: var(--bs-secondary-color); margin: 0; }
+.ruleset-details dd { margin: 0; min-width: 0; }
+@media (max-width: 575.98px) {
+  .ruleset-details { grid-template-columns: 1fr; row-gap: 0; }
+  .ruleset-details dd { margin-bottom: .6rem; }
+}

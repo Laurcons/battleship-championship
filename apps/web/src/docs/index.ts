@@ -1,0 +1,46 @@
+import gettingStarted from '../../../../docs/getting-started.md?raw';
+import programRules from '../../../../docs/program-rules.md?raw';
+import protocolV1 from '../../../../docs/protocol-v1.md?raw';
+import rulesetsDoc from '../../../../docs/rulesets.md?raw';
+import examplesReadme from '../../../../examples/README.md?raw';
+import botTs from '../../../../examples/typescript/bot.ts?raw';
+import botPy from '../../../../examples/python/bot.py?raw';
+
+export interface DocPage {
+  slug: string;
+  title: string;
+  source: string;
+}
+
+export const DOC_PAGES: DocPage[] = [
+  { slug: 'getting-started', title: 'Getting started', source: gettingStarted },
+  { slug: 'rules', title: 'Rules for programs', source: programRules },
+  { slug: 'rulesets', title: 'Rulesets', source: rulesetsDoc },
+  { slug: 'protocol', title: 'Protocol', source: protocolV1 },
+];
+
+export interface ProtocolVersion {
+  version: number;
+  path: string;
+  status: 'current' | 'deprecated';
+  note: string;
+}
+
+export const PROTOCOL_VERSIONS: ProtocolVersion[] = [
+  { version: 1, path: '/program/v1', status: 'current', note: 'The first and current version.' },
+];
+
+export interface ExampleFile {
+  slug: string;
+  title: string;
+  filename: string;
+  language: string;
+  source: string;
+}
+
+export const EXAMPLES_README = examplesReadme;
+
+export const EXAMPLES: ExampleFile[] = [
+  { slug: 'typescript', title: 'TypeScript (Node)', filename: 'bot.ts', language: 'typescript', source: botTs },
+  { slug: 'python', title: 'Python', filename: 'bot.py', language: 'python', source: botPy },
+];
