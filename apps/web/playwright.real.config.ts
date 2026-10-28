@@ -35,6 +35,7 @@ export default defineConfig({
       PLACE_TIMEOUT_MS: '3000',
       GRACE_MS: '4000',
       LOGIN_ATTEMPTS: '1000',
+      API_RATE_LIMIT: '1000000', // every test comes from one address
     },
   },
 });

@@ -37,7 +37,13 @@ export function useLobbies() {
 
 export function useLobby(id: string) {
   const api = useApi();
-  return useQuery({ queryKey: keys.lobby(id), queryFn: () => api.getLobby(id), retry: false });
+  return useQuery({
+    queryKey: keys.lobby(id),
+    queryFn: () => api.getLobby(id),
+    retry: false,
+    // The live stream keeps this fresh; a slow refetch while a battery runs is the safety net.
+    refetchInterval: (query) => (query.state.data?.status === 'running' || query.state.data?.status === 'paused' ? 5000 : false),
+  });
 }
 
 export function useRulesets() {
@@ -96,8 +102,10 @@ export function useLobbyAction<TArgs extends unknown[]>(
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (args: TArgs) => action(...args),
-    onSuccess: (result) => {
-      if (result) qc.setQueryData(keys.lobby(lobbyId), result);
+    onSuccess: () => {
+      // Refetch rather than store the action's response: a fast battery can already have finished by
+      // the time the response arrives, and the live stream's newer state must not be overwritten.
+      void qc.invalidateQueries({ queryKey: keys.lobby(lobbyId) });
       void qc.invalidateQueries({ queryKey: ['games', lobbyId] });
       void qc.invalidateQueries({ queryKey: ['report', lobbyId] });
       void qc.invalidateQueries({ queryKey: ['series', lobbyId] });
