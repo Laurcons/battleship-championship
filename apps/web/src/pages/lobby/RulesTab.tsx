@@ -49,6 +49,19 @@ export function RulesTab({ lobby }: { lobby: LobbySummary }) {
         </Card.Body>
       </Card>
 
+      {lobby.stopOnInfraction && (
+        <Card className="mb-4" data-testid="lobby-stop-rule">
+          <Card.Body>
+            <Card.Title as="h2" className="h6">
+              Stops on infraction
+            </Card.Title>
+            <p className="small mb-0">
+              A battery here ends, as aborted with the results so far, at the first invalid move, malformed reply or timeout of either program. The game where it happened stays in the history, marked void.
+            </p>
+          </Card.Body>
+        </Card>
+      )}
+
       <Card className="mb-4">
         <Card.Body>
           <div className="d-flex align-items-center mb-2">

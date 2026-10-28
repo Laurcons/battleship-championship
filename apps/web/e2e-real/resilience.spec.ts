@@ -68,6 +68,37 @@ test.describe('real stack: misbehaving and disappearing programs', () => {
     await expect(page.getByTestId('move-item').filter({ hasText: /out_of_bounds|out of bounds/i }).first()).toBeVisible();
   });
 
+  test('a lobby that stops on infraction ends the battery at the first one, from a real program', async ({ browser }) => {
+    const admin = await AdminApi.login();
+    const nat = await admin.person('Nat');
+    const page = await personPage(browser, nat);
+    const token = await createToken(page);
+    await page.goto('/lobbies/new');
+    await page.getByLabel('Opponent').selectOption('bot:random');
+    await page.getByLabel('End a battery at the first infraction').check();
+    await page.getByRole('button', { name: 'Create lobby' }).click();
+    const lobbyId = ((await page.getByTestId('lobby-id').textContent()) as string).trim();
+    await expect(page.getByTestId('stop-on-infraction')).toBeVisible();
+    let turns = 0;
+    const program = await Program.connect({
+      token,
+      lobby: lobbyId,
+      onTurn: (frame, send) => {
+        if (++turns === 30) {
+          send({ type: 'fire', rid: frame.rid, x: 99, y: 99 });
+          return true;
+        }
+        return false;
+      },
+    });
+    await expect(page.getByTestId('lobby-status')).toHaveText(/Ready/);
+    await startBattery(page, 50);
+    await expect(page.getByTestId('series-aborted')).toContainText('first infraction', { timeout: 30_000 });
+    await expect.poll(() => program.of('reset').filter((r) => r.reason === 'series_stopped').length).toBe(1);
+    await page.getByRole('tab', { name: 'History' }).click();
+    await expect(page.getByTestId('game-row').last()).toContainText(/Voided/);
+  });
+
   test('restarting the current game and resetting the series work from the interface', async ({ browser }) => {
     const admin = await AdminApi.login();
     const mia = await admin.person('Mia');

@@ -8,7 +8,7 @@ The platform is one container: the API, which also serves the built web app, plu
 - A way to run the image built from the `Dockerfile` in the repository root, behind HTTPS (Coolify does this).
 - Two password hashes: the shared participant password and the admin password.
 
-Create the hashes with `pnpm --filter @bsc/api hash-password` (it prompts for the password and prints an `scrypt$...` string). Make the shared password long and random.
+Create the hashes with `pnpm --filter @bsc/api hash-password` (it prompts for the password and prints a `scrypt:...` string; paste it as it is, no quoting or escaping needed). Make the shared password long and random.
 
 ## Configuration
 

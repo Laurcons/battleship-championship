@@ -30,10 +30,13 @@ const scryptAsync = (password: string, salt: Buffer): Promise<Buffer> =>
     scrypt(password, salt, SCRYPT.keylen, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p }, (err, key) => (err ? reject(err) : resolve(key))),
   );
 
-/** `scrypt$<salt hex>$<hash hex>` */
+/**
+ * `scrypt:<salt hex>:<hash hex>`. Colons, not dollar signs: `$` is interpolated by Docker Compose
+ * and shells, which silently corrupts a hash pasted into an `.env` file.
+ */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
-  return `scrypt$${salt.toString('hex')}$${(await scryptAsync(password, salt)).toString('hex')}`;
+  return `scrypt:${salt.toString('hex')}:${(await scryptAsync(password, salt)).toString('hex')}`;
 }
 
 export type Secret = { hash: string } | { plain: string };
@@ -44,7 +47,8 @@ export async function verifyPassword(password: string, secret: Secret): Promise<
     const b = createHash('sha256').update(secret.plain).digest();
     return timingSafeEqual(a, b);
   }
-  const [scheme, saltHex, hashHex] = secret.hash.split('$');
+  // The first version of the format used `$` as the separator; it is still accepted.
+  const [scheme, saltHex, hashHex] = secret.hash.split(/[:$]/);
   if (scheme !== 'scrypt' || !saltHex || !hashHex) return false;
   const expected = Buffer.from(hashHex, 'hex');
   const actual = await scryptAsync(password, Buffer.from(saltHex, 'hex'));

@@ -196,11 +196,25 @@ export class LobbyRunner {
     const live = this.live as LiveGame;
     live.strikes[seat]++;
     this.push({ type: 'infraction', seat, code, message, strikes: live.strikes[seat], raw, ms });
+    if (this.halt(seat, code)) return true;
     if (live.strikes[seat] >= PLATFORM_CONSTANTS.maxStrikes) {
       this.forfeit(seat, 'strikes');
       return true;
     }
     return false;
+  }
+
+  /** `stopOnInfraction`: the game is voided (kept for inspection) and the battery ends. */
+  private halt(seat: Seat, code: string): boolean {
+    if (!this.lobby.stopOnInfraction) return false;
+    const series = this.series() as SeriesRec;
+    this.voidLive();
+    series.status = 'aborted';
+    series.abortReason = `Stopped at the first infraction: ${this.lobby.seats[seat - 1]?.owner.name}'s program, "${code}".`;
+    series.endedAt = this.host.now();
+    this.host.changed();
+    this.host.emit(this.lobby.id, true);
+    return true;
   }
 
   private forfeit(seat: Seat, reason: 'timeout' | 'strikes' | 'disconnect'): void {
@@ -230,7 +244,7 @@ export class LobbyRunner {
         strikes: live.strikes[seat],
         ms: PLATFORM_CONSTANTS.moveTimeoutMs,
       });
-      this.forfeit(seat, 'timeout');
+      if (!this.halt(seat, 'timeout')) this.forfeit(seat, 'timeout');
       return;
     }
     if (fault === 'crash' && roll < 0.015) {

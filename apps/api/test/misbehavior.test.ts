@@ -256,3 +256,67 @@ describe('persistence of what happened', () => {
     expect((await w.alice.get(`/api/lobbies/${lobby.id}`)).status).toBe(404);
   });
 });
+
+describe('stop on infraction', () => {
+  it('is off unless the creator asks for it, and is shown on the lobby', async () => {
+    expect((await w.newLobby()).stopOnInfraction).toBe(false);
+    const on = await w.newLobby({ stopOnInfraction: true });
+    expect(on.stopOnInfraction).toBe(true);
+    expect((await w.lobby(on.id)).stopOnInfraction).toBe(true);
+  });
+
+  it('ends the battery at the first invalid move, keeps the results so far, and keeps the game for inspection', async () => {
+    let turns = 0;
+    const behavior: Behavior = {
+      onTurn(f, p) {
+        if (f.game.index === 3 && ++turns === 2) {
+          p.send({ type: 'fire', rid: f.rid, x: 40, y: 0 });
+          return null;
+        }
+        return undefined;
+      },
+    };
+    const { lobby, a, b } = await w.readyLobby({ stopOnInfraction: true }, { seed: 1, behavior });
+    const done = await w.startAndFinish(lobby.id, 6);
+    expect(done.series.status).toBe('aborted');
+    expect(done.series.played).toBe(2);
+    expect(done.series.abortReason).toMatch(/first infraction.*Alice.*out_of_bounds/);
+    const games = await w.games(lobby.id);
+    expect(games.map((g: any) => g.status)).toEqual(['over', 'over', 'void']);
+    const detail = await w.game(lobby.id, games[2].id);
+    expect(detail.events.find((e: any) => e.type === 'infraction')).toMatchObject({ seat: 1, code: 'out_of_bounds' });
+    // Both programs are told the battery stopped; nothing new is sent afterwards.
+    for (const p of [a, b]) {
+      await p.waitForFrame('reset');
+      expect(p.of('reset').at(-1)).toEqual({ type: 'reset', reason: 'series_stopped' });
+    }
+    const places = a.of('place').length;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(a.of('place').length).toBe(places);
+    expect(a.of('turn').every((t) => t.strikes === 0)).toBe(true); // not even re-issued
+    // The lobby is ready for the next battery.
+    expect((await w.lobby(lobby.id)).status).toBe('ready');
+    a.behavior = {};
+    expect((await w.startAndFinish(lobby.id, 1)).series.status).toBe('done');
+  });
+
+  it('also stops on a timeout and on an invalid placement', async () => {
+    const slow = await w.readyLobby({ stopOnInfraction: true }, { seed: 1, behavior: { onTurn: () => null } });
+    const timedOut = await w.startAndFinish(slow.lobby.id, 3);
+    expect(timedOut.series).toMatchObject({ status: 'aborted', played: 0 });
+    expect(timedOut.series.abortReason).toMatch(/"timeout"/);
+
+    const bad = await w.readyLobby({ stopOnInfraction: true }, { seed: 1 }, {
+      seed: 2,
+      behavior: { onPlace: (f) => ({ type: 'placement', rid: f.rid, ships: [] }) },
+    });
+    const refused = await w.startAndFinish(bad.lobby.id, 3);
+    expect(refused.series).toMatchObject({ status: 'aborted', played: 0 });
+    expect(refused.series.abortReason).toMatch(/Bruno.*bad_fleet/);
+  });
+
+  it('does not change how a lobby without the flag handles the same mistakes', async () => {
+    const { lobby } = await w.readyLobby({}, { seed: 1, behavior: badTurns((f) => ({ type: 'fire', rid: f.rid, x: 40, y: 0 }), 1) });
+    expect((await w.startAndFinish(lobby.id, 2)).series).toMatchObject({ status: 'done', played: 2 });
+  });
+});

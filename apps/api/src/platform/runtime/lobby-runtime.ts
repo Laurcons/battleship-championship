@@ -413,10 +413,19 @@ export class LobbyRuntime {
       live.times.push(this.host.now());
       live.state = apply(live.state, event);
     };
+    // With `stopOnInfraction`, the first infraction (a strike or a timeout) ends the battery instead.
+    let halted: { seat: Seat; code: string } | null = null;
+    const halt = (seat: Seat, code: string): boolean => {
+      if (!this.lobby.row.stopOnInfraction) return false;
+      halted = { seat, code };
+      token.cancel('void'); // wakes the other seat's pending request, if any
+      return true;
+    };
     const infraction = (seat: Seat, code: string, message: string, raw: string | undefined, ms: number): boolean => {
       strikes[seat]++;
       push({ type: 'infraction', seat, code, message, strikes: strikes[seat], ...(raw ? { raw } : {}), ms });
       this.note(seat, `Infraction "${code}": ${message} Strike ${strikes[seat]}/${this.host.limits.maxStrikes}.`);
+      if (halt(seat, code)) return true;
       if (strikes[seat] >= this.host.limits.maxStrikes) {
         forfeit(seat, 'strikes');
         return true;
@@ -451,7 +460,7 @@ export class LobbyRuntime {
         if (outcome.kind === 'gone') return { gone: outcome.seat };
         if (outcome.kind === 'timeout') {
           push({ type: 'infraction', seat, code: 'timeout', message: `No reply within ${this.host.limits.placeMs} ms.`, strikes: strikes[seat], ms: outcome.ms });
-          forfeit(seat, 'timeout');
+          if (!halt(seat, 'timeout')) forfeit(seat, 'timeout');
           return 'ended';
         }
         let code: GameplayErrorCode = 'bad_shape';
@@ -504,7 +513,7 @@ export class LobbyRuntime {
         if (outcome.kind === 'gone') return this.giveUp(series, outcome.seat, live);
         if (outcome.kind === 'timeout') {
           push({ type: 'infraction', seat, code: 'timeout', message: `No reply within ${this.host.limits.moveMs} ms.`, strikes: strikes[seat], ms: outcome.ms });
-          forfeit(seat, 'timeout');
+          if (!halt(seat, 'timeout')) forfeit(seat, 'timeout');
           break;
         }
         let code: GameplayErrorCode = 'bad_shape';
@@ -534,6 +543,7 @@ export class LobbyRuntime {
       this.host.notify(this.lobby.id);
     }
 
+    if (halted) return this.haltSeries(series, live, halted);
     if (live.state.phase !== 'over') {
       // Cancelled before the game ended: a restart voids it, a reset or deletion stops everything.
       await this.recordVoid(series, live);
@@ -541,6 +551,18 @@ export class LobbyRuntime {
     }
     await this.finishGame(series, live);
     return 'finished';
+  }
+
+  /** `stopOnInfraction`: the game with the infraction is kept (voided) for inspection, the battery ends. */
+  private async haltSeries(series: SeriesRow, live: LiveGame, cause: { seat: Seat; code: string }): Promise<GameEnd> {
+    await this.recordVoid(series, live);
+    series.status = 'aborted';
+    series.abortReason = `Stopped at the first infraction: ${this.ownerName(cause.seat)}'s program, "${cause.code}".`;
+    series.endedAt = this.host.now();
+    await this.host.saveSeries(this.lobby, series);
+    for (const seat of [1, 2] as const) this.notifyReset(seat, 'series_stopped');
+    this.host.notify(this.lobby.id, true);
+    return 'aborted';
   }
 
   private opponentName(seat: Seat): string {
@@ -705,7 +727,7 @@ export class LobbyRuntime {
     this.lobby.live = null;
   }
 
-  private notifyReset(seat: Seat, reason: 'restart_game' | 'reset_series'): void {
+  private notifyReset(seat: Seat, reason: 'restart_game' | 'reset_series' | 'series_stopped'): void {
     this.send(seat, { type: 'reset', reason });
   }
 

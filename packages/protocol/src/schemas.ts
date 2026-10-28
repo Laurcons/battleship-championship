@@ -153,7 +153,7 @@ export const gameOverSchema = z.object({
 
 export const resetSchema = z.object({
   type: z.literal('reset'),
-  reason: z.enum(['restart_game', 'reset_series']),
+  reason: z.enum(['restart_game', 'reset_series', 'series_stopped']),
 });
 
 export const errorFrameSchema = z.object({

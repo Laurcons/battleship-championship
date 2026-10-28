@@ -115,6 +115,27 @@ describe('authorization (IDOR)', () => {
   });
 });
 
+describe('stop on infraction', () => {
+  it('is off by default; when on, the first infraction ends the battery and keeps the game as void', async () => {
+    alice();
+    const plain = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    expect(plain.stopOnInfraction).toBe(false);
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10', stopOnInfraction: true });
+    expect(lobby.stopOnInfraction).toBe(true);
+    server.connectProgram(lobby.id, 1);
+    server.connectProgram(lobby.id, 2, { brain: 'hunt-target', fault: 'invalid_moves' });
+    server.startSeries(lobby.id, 200);
+    await waitFor(() => server.getLobby(lobby.id).series?.status === 'aborted');
+    const info = server.getLobby(lobby.id).series!;
+    expect(info.abortReason).toMatch(/first infraction/);
+    expect(info.played).toBeLessThan(200);
+    const games = server.listGames(lobby.id);
+    expect(games.at(-1)).toMatchObject({ status: 'void' });
+    expect(games.at(-1)!.infractions[2]).toBe(1);
+    expect(server.getLobby(lobby.id).status).toBe('ready');
+  });
+});
+
 describe('lobbies and batteries', () => {
   it('creates a lobby, refuses to start before programs connect, then plays a battery', async () => {
     alice();

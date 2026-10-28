@@ -183,6 +183,7 @@ export class LobbiesService {
       rulesetId: lobby.row.rulesetId,
       ruleset: lobby.ruleset,
       godMode: lobby.row.godMode,
+      stopOnInfraction: lobby.row.stopOnInfraction,
       viewerMode: viewerMode(viewer, lobby),
       createdAt: lobby.row.createdAt,
       createdBy: this.accounts.ref(lobby.row.createdBy),
@@ -316,7 +317,7 @@ export class LobbiesService {
 
   // --- create and delete -----------------------------------------------------------------------
 
-  create(viewer: Viewer, input: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean }): Promise<LobbySummary> {
+  create(viewer: Viewer, input: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean; stopOnInfraction?: boolean }): Promise<LobbySummary> {
     return this.lock.run(async () => {
       if (viewer.role !== 'participant') throw new ApiError('forbidden', 'Only participants can create lobbies.');
       const rec = this.rulesets.get(input.rulesetId);
@@ -349,6 +350,7 @@ export class LobbiesService {
         id: this.uniqueCode(),
         rulesetId: rec.ruleset.id,
         godMode: forced || requested,
+        stopOnInfraction: input.stopOnInfraction ?? false,
         createdBy: viewer.participantId,
         seats: [{ kind: 'participant', participantId: viewer.participantId }, second],
         createdAt: now,

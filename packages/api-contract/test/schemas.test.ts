@@ -14,7 +14,7 @@ describe('request schemas', () => {
   it('bounds numbers and strings', () => {
     expect(startSeriesSchema.safeParse({ games: 100 }).success).toBe(true);
     for (const games of [0, -1, 1.5, '3', 10_000_000]) expect(startSeriesSchema.safeParse({ games }).success).toBe(false);
-    expect(adminLoginSchema.safeParse({ username: 'a', password: 'x'.repeat(201) }).success).toBe(false);
+    expect(adminLoginSchema.safeParse({ username: 'a', password: "x".repeat(1025) }).success).toBe(false);
     expect(updateSettingsSchema.safeParse({}).success).toBe(true);
     expect(updateSettingsSchema.safeParse({ allowGodMode: 'yes' }).success).toBe(false);
   });

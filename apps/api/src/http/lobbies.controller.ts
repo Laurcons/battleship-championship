@@ -46,7 +46,7 @@ export class LobbiesController {
   @Access('participant')
   create(
     @CurrentViewer() viewer: Viewer,
-    @Body(new ZodPipe(createLobbySchema)) body: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean },
+    @Body(new ZodPipe(createLobbySchema)) body: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean; stopOnInfraction?: boolean },
   ): Promise<LobbySummary> {
     return this.lobbies.create(viewer, body);
   }

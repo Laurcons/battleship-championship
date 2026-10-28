@@ -298,6 +298,7 @@ export class MockServer implements RunnerHost {
       rulesetId: lobby.rulesetId,
       ruleset: lobby.ruleset,
       godMode: lobby.godMode,
+      stopOnInfraction: lobby.stopOnInfraction ?? false,
       viewerMode: this.viewerMode(lobby, session),
       createdAt: lobby.createdAt,
       createdBy: this.ref(lobby.createdBy),
@@ -533,7 +534,7 @@ export class MockServer implements RunnerHost {
     return this.summary(this.lobbyFor(id, session), session);
   }
 
-  createLobby(input: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean }): LobbySummary {
+  createLobby(input: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean; stopOnInfraction?: boolean }): LobbySummary {
     const session = this.requireParticipant();
     const rulesetRec = this.state.rulesets.find((r) => r.ruleset.id === input.rulesetId);
     if (!rulesetRec) throw new ApiError('validation', 'Unknown ruleset.');
@@ -582,6 +583,7 @@ export class MockServer implements RunnerHost {
       rulesetId: rulesetRec.ruleset.id,
       ruleset: rulesetRec.ruleset,
       godMode: forced || requested,
+      stopOnInfraction: input.stopOnInfraction ?? false,
       createdAt: now,
       createdBy: me.id,
       seats: [seatOf(1, { kind: 'participant', participantId: me.id, name: me.name }), seatOf(2, seat2Owner)],

@@ -78,6 +78,11 @@ export function LobbyPage() {
         <CopyButton text={lobby.id} label="Copy id" />
         <LobbyStatusBadge status={lobby.status} />
         <ViewerModeBadge mode={lobby.viewerMode} godMode={lobby.godMode} />
+        {lobby.stopOnInfraction && (
+          <span className="badge text-bg-warning" title="A battery ends at the first invalid move, malformed reply or timeout." data-testid="stop-on-infraction">
+            Stops on infraction
+          </span>
+        )}
         <span className="badge text-bg-secondary mono" title="Ruleset" data-testid="lobby-ruleset">
           {lobby.rulesetId}
         </span>

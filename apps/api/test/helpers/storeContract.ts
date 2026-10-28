@@ -18,6 +18,7 @@ const lobby = (over: Partial<LobbyRow> = {}): LobbyRow => ({
   id: 'K7QM-4XD2-7',
   rulesetId: 'classic-10x10',
   godMode: true,
+  stopOnInfraction: false,
   createdBy: 'p_1',
   seats: [
     { kind: 'participant', participantId: 'p_1' },
@@ -108,10 +109,10 @@ export function describeStoreContract(name: string, create: () => Promise<{ stor
     it('stores lobbies and series, and deleting a lobby removes its series and games', async () => {
       await store.saveParticipant(participant());
       await store.saveLobby(lobby());
-      await store.saveLobby(lobby({ lastActivityAt: 9_999 }));
+      await store.saveLobby(lobby({ lastActivityAt: 9_999, stopOnInfraction: true }));
       await store.saveSeries(series());
       await store.recordGame(game(), series({ played: 1, score: { 1: 1, 2: 0 } }));
-      expect(await store.listLobbies()).toEqual([lobby({ lastActivityAt: 9_999 })]);
+      expect(await store.listLobbies()).toEqual([lobby({ lastActivityAt: 9_999, stopOnInfraction: true })]);
       expect(await store.listSeries('K7QM-4XD2-7')).toEqual([series({ played: 1, score: { 1: 1, 2: 0 } })]);
       await store.deleteLobby('K7QM-4XD2-7');
       expect(await store.listLobbies()).toEqual([]);

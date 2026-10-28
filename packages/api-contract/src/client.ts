@@ -59,7 +59,13 @@ export interface ApiClient {
    * always on for lobbies against yourself or a practice bot, and rejected when the admin has turned
    * god mode off. It cannot change after creation.
    */
-  createLobby(input: { opponent: OpponentChoice; rulesetId: string; godMode?: boolean }): Promise<LobbySummary>;
+  createLobby(input: {
+    opponent: OpponentChoice;
+    rulesetId: string;
+    godMode?: boolean;
+    /** End a battery at the first infraction (default off). Fixed at creation. */
+    stopOnInfraction?: boolean;
+  }): Promise<LobbySummary>;
   deleteLobby(id: string): Promise<void>;
   startSeries(lobbyId: string, games: number): Promise<LobbySummary>;
   restartGame(lobbyId: string): Promise<LobbySummary>;

@@ -21,6 +21,10 @@ Whoever creates a lobby decides how much the players can see while a game is run
 
 The choice is fixed when the lobby is created, and the lobby shows which mode it is in. Lobbies against yourself or a practice bot are always in god mode. For a competitive event the admin can turn god mode off completely.
 
+## Stop on infraction
+
+A lobby can also be created with **stop on infraction**. In such a lobby a battery ends, as aborted with the results so far, at the first infraction of either program (an invalid move or placement, a malformed reply, or a timeout). The game where it happened is kept in the history, marked void, so you can see what went wrong. Use it to catch bugs early in a long battery instead of letting a broken program forfeit hundreds of games. Like god mode, it is fixed when the lobby is created.
+
 ## Rulesets
 
 A ruleset fixes the board size, the fleet and the optional rules (touching ships, extra turn on a hit, whether sunk ships are announced, what happens on a repeated shot, whether the opponent's layout is revealed after a game). Your program lists the rulesets it supports in `hello.accepts`. If the lobby's ruleset is not among them, the connection is refused with close code 4426 and a message naming the lobby's ruleset.

@@ -39,6 +39,7 @@ model Lobby {
   id             String  @id @db.VarChar(16)
   rulesetId      String  @db.VarChar(40)
   godMode        Boolean
+  stopOnInfraction Boolean @default(false)
   createdBy      String  @db.VarChar(64)
   /// JSON: { kind: "participant", participantId } or { kind: "bot", bot }.
   seat1          String  @db.VarChar(200)

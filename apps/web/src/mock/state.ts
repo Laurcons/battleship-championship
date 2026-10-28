@@ -75,6 +75,8 @@ export interface LobbyRec {
   rulesetId: string;
   ruleset: Ruleset;
   godMode: boolean;
+  /** Absent in state saved by earlier versions: treated as off. */
+  stopOnInfraction?: boolean;
   createdAt: number;
   createdBy: string;
   seats: [SeatRec, SeatRec];

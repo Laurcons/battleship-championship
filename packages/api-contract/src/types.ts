@@ -69,6 +69,8 @@ export interface LobbySummary {
   ruleset: Ruleset;
   /** Whether the lobby was created with god-mode. */
   godMode: boolean;
+  /** Whether a battery ends, aborted, at the first infraction of either program. Fixed at creation. */
+  stopOnInfraction: boolean;
   /** What this viewer sees. */
   viewerMode: ViewerMode;
   createdAt: number;

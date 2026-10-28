@@ -5,11 +5,11 @@ import { z } from 'zod';
 
 const botKinds = BOT_KINDS.map((b) => b.kind) as [string, ...string[]];
 
-export const gateInputSchema = z.object({ password: z.string().min(1).max(200) });
+export const gateInputSchema = z.object({ password: z.string().min(1).max(1024) });
 export const participantLoginSchema = z.object({ participantId: z.string().min(1).max(64) });
 export const adminLoginSchema = z.object({
   username: z.string().min(1).max(100),
-  password: z.string().min(1).max(200),
+  password: z.string().min(1).max(1024),
 });
 
 export const createLobbySchema = z.object({
@@ -19,6 +19,7 @@ export const createLobbySchema = z.object({
   ]),
   rulesetId: z.string().min(1).max(40),
   godMode: z.boolean().optional(),
+  stopOnInfraction: z.boolean().optional(),
 });
 
 export const startSeriesSchema = z.object({ games: z.number().int().min(1).max(1_000_000) });

@@ -26,6 +26,7 @@ export interface LobbyRow {
   id: string;
   rulesetId: string;
   godMode: boolean;
+  stopOnInfraction: boolean;
   createdBy: string;
   seats: [SeatOwnerRow, SeatOwnerRow];
   createdAt: number;

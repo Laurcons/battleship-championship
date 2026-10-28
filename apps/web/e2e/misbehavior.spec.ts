@@ -2,6 +2,26 @@ import { expect, test } from '@playwright/test';
 import { closeMockPanel, connectPrograms, createLobby, freshApp, loginAs, openLobbyWith, openMockPanel, shot, startBattery } from './helpers';
 
 test.describe('programs that misbehave', () => {
+  test('a lobby that stops on infraction ends the battery at the first one', async ({ page }) => {
+    await freshApp(page);
+    await loginAs(page, 'Alice');
+    await page.goto('/lobbies/new');
+    await page.getByLabel('Opponent').selectOption({ label: 'Bruno' });
+    await page.getByLabel('End a battery at the first infraction').check();
+    await page.getByRole('button', { name: 'Create lobby' }).click();
+    await expect(page.getByTestId('stop-on-infraction')).toBeVisible();
+    await openMockPanel(page);
+    await page.getByLabel('Behavior of seat 2').selectOption('invalid_moves');
+    await closeMockPanel(page);
+    await connectPrograms(page);
+    await startBattery(page, 100);
+    await expect(page.getByTestId('series-aborted')).toContainText('first infraction', { timeout: 30_000 });
+    await page.getByRole('tab', { name: 'History' }).click();
+    await expect(page.getByText('Voided').first()).toBeVisible();
+    await page.getByRole('tab', { name: 'Rules' }).click();
+    await expect(page.getByTestId('lobby-stop-rule')).toBeVisible();
+  });
+
   test('invalid moves and forfeits are highlighted in the history (seeded lobby)', async ({ page }) => {
     await freshApp(page);
     await loginAs(page, 'Bruno');

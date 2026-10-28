@@ -16,6 +16,7 @@ const schema = z.object({
   opponent: z.string().min(1, 'Choose an opponent.'),
   rulesetId: z.string().min(1, 'Choose a ruleset.'),
   godMode: z.boolean(),
+  stopOnInfraction: z.boolean(),
 });
 
 function parseOpponent(value: string): OpponentChoice {
@@ -46,11 +47,11 @@ export function NewLobbyPage() {
   const defaultRuleset = enabled.find((r) => r.isDefault)?.ruleset.id ?? '';
   const form = useForm({
     resolver: zodResolver(schema),
-    values: { opponent: '', rulesetId: defaultRuleset, godMode: session?.role === 'participant' ? getLastGodMode(session.participantId) : true },
+    values: { opponent: '', rulesetId: defaultRuleset, godMode: session?.role === 'participant' ? getLastGodMode(session.participantId) : true, stopOnInfraction: false },
   });
   const selected = useWatch({ control: form.control });
   const create = useMutation({
-    mutationFn: (input: { opponent: OpponentChoice; rulesetId: string; godMode: boolean }) => api.createLobby(input),
+    mutationFn: (input: { opponent: OpponentChoice; rulesetId: string; godMode: boolean; stopOnInfraction: boolean }) => api.createLobby(input),
     onSuccess: (lobby) => {
       void qc.invalidateQueries({ queryKey: keys.lobbies });
       navigate(`/lobbies/${lobby.id}`);
@@ -77,7 +78,7 @@ export function NewLobbyPage() {
         noValidate
         onSubmit={form.handleSubmit((values) => {
           if (!locked && me) rememberGodMode(me, godMode);
-          create.mutate({ opponent: parseOpponent(values.opponent), rulesetId: values.rulesetId, godMode });
+          create.mutate({ opponent: parseOpponent(values.opponent), rulesetId: values.rulesetId, godMode, stopOnInfraction: values.stopOnInfraction });
         })}
       >
         <Form.Group className="mb-3" controlId="opponent">
@@ -134,6 +135,18 @@ export function NewLobbyPage() {
                   ? 'Both players see both fleets during a game.'
                   : 'Each player only sees what their own program knows during a game.'}{' '}
             Fixed once the lobby is created.
+          </Form.Text>
+        </Form.Group>
+
+        <Form.Group className="mb-4" controlId="stop-on-infraction">
+          <Form.Check
+            type="switch"
+            label="End a battery at the first infraction"
+            checked={selected.stopOnInfraction ?? false}
+            onChange={(e) => form.setValue('stopOnInfraction', e.target.checked)}
+          />
+          <Form.Text className="d-block">
+            An invalid move, a malformed reply or a timeout. The game stays in the history. Fixed once the lobby is created.
           </Form.Text>
         </Form.Group>
 

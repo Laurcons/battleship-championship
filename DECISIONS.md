@@ -233,10 +233,11 @@ Built in this order: protocol package, API core, game runtime, HTTP client for t
 - **The event loop is shared fairly**: practice bots answer through the event loop (one yield per move), so a long battery never starves other requests.
 - Nest is pinned to 12.2.0 because 12.3.x was younger than the package manager's minimum release age.
 
+- **Stop on infraction** is a checkbox when the lobby is created (off by default, fixed afterwards, like god mode). An infraction is an invalid move or placement, a malformed reply, or a timeout. The game where it happens is stored as void for inspection, the battery ends as aborted with the results so far, and both programs receive `reset` with `reason: "series_stopped"`.
+
 Deviations from earlier decisions, to be confirmed:
 
 - **Raw frame logs live in memory only** (a ring buffer of 2000 frames per program, as decided), not in the database, so they are lost when the platform restarts and there is no seven-day expiry to implement. Everything else (games, series, audit log) is stored.
-- **`stopOnInfraction`** (end a battery at the first infraction) is not implemented: the mock and the lobby settings never offered it.
 - Games that are voided (restart) or interrupted are stored with status `void`; a game in progress when the platform stops is not stored at all.
 
 ## 20. Out of scope for now

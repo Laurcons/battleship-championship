@@ -178,7 +178,7 @@ The platform answers a `fire` with the next `turn` (or `game_over`). There is **
 { "type": "reset", "reason": "restart_game" }
 ```
 
-`reason` is `"restart_game"` (the game is voided; the same game index will be played again) or `"reset_series"` (all battery results are discarded; the program should discard cross-game memory too). The program drops its current game state and waits for the next `place`. `reset` needs no reply, and can arrive at any time.
+`reason` is `"restart_game"` (the game is voided; the same game index will be played again), `"reset_series"` (all battery results are discarded; the program should discard cross-game memory too) or `"series_stopped"` (the lobby was created with *stop on infraction* and the battery ended at the first infraction; the game is voided and no new `place` follows until a participant starts another battery). The program drops its current game state and waits for the next `place`. `reset` needs no reply, and can arrive at any time.
 
 ### `error` (platform to program, standalone)
 
@@ -214,6 +214,7 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 | Situation | Platform behavior |
 |---|---|
 | Repeated shot with `repeat_shot: "waste"` | Not a strike. The result is `"repeat"`, the turn passes, and the move is highlighted in the move history. |
+| Any infraction (below, or a timeout) in a lobby created with **stop on infraction** | The game is voided (kept in the history), the battery ends as aborted with the results so far, and both programs receive `reset` with `reason: "series_stopped"`. |
 | Invalid placement or invalid `fire` (out of bounds, already shot with `repeat_shot: "invalid"`, wrong fleet, ...) | One **strike**. The platform re-sends the same request type (`place` or `turn`) with a new `rid`, `error` filled in and `strikes` updated. After `max_strikes` the game is lost (`reason: "strikes"`). |
 | Reply with a wrong shape (valid JSON but fails the schema) for the pending `rid` | Same as an invalid move: one strike. |
 | No reply before `deadline_ms` | The game is lost immediately (`reason: "timeout"`). Not a strike. |
