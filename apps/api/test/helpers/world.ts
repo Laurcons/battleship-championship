@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON responses are inspected loosely */
 import { expect } from 'vitest';
 import { TestProgram, type ProgramOptions } from './program.js';
+import type { Store } from '../../src/store/store.js';
 import { eventually, startTestApp, tokenFor, type Client, type TestApp } from './testApp.js';
 
 /** Alice and Bruno with tokens, fast timeouts, and helpers to create lobbies and run batteries. */
@@ -15,8 +16,9 @@ export class World {
     public brunoToken: string,
   ) {}
 
-  static async create(env: Record<string, string> = {}): Promise<World> {
+  static async create(env: Record<string, string> = {}, store?: Store): Promise<World> {
     const t = await startTestApp({
+      ...(store ? { store } : {}),
       env: { MOVE_TIMEOUT_MS: '400', PLACE_TIMEOUT_MS: '400', GRACE_MS: '600', HELLO_TIMEOUT_MS: '300', ...env },
     });
     const alice = t.client();

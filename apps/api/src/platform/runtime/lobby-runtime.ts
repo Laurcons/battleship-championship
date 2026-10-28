@@ -551,9 +551,17 @@ export class LobbyRuntime {
     const { state } = live;
     const endedAt = this.host.now();
     const summary = summarizeGame(live.index, state, live.events);
-    series.played++;
-    if (state.winner) series.score[state.winner]++;
-    addGameToHeatmap(series.heatmap, state);
+    // Work on a copy: the lobby only shows the game as finished once it is stored, so viewers never
+    // see a series that is done while its last game is still "live" (or missing from the history).
+    const next: SeriesRow = structuredClone(series);
+    next.played++;
+    if (state.winner) next.score[state.winner]++;
+    addGameToHeatmap(next.heatmap, state);
+    const done = next.played >= next.target;
+    if (done) {
+      next.status = 'done';
+      next.endedAt = endedAt;
+    }
     const row: GameRow = {
       id: live.id,
       lobbyId: this.lobby.id,
@@ -571,12 +579,8 @@ export class LobbyRuntime {
       times: live.times,
       summary,
     };
-    const done = series.played >= series.target;
-    if (done) {
-      series.status = 'done';
-      series.endedAt = endedAt;
-    }
-    await this.persist(row, series);
+    await this.persist(row, next);
+    Object.assign(series, next);
     this.lobby.live = null;
     this.host.touch(this.lobby);
     const winner = state.winner as Seat;
