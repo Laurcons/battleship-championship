@@ -1,0 +1,22 @@
+﻿Battleships Championship - program C++
+
+CE CONȚINE ARHIVA
+  bot.cpp   - singurul fișier pe care îl modifici (programul tău + documentația completă)
+  bsc.h     - legătura dintre bot.cpp și shim (nu îl modifica)
+  bsc.cpp   - shim-ul: se ocupă de rețea și de platformă (nu îl modifica)
+
+CUM O FOLOSEȘTI
+  1. Dezarhivează cele trei fișiere .cpp/.h în folderul proiectului Code::Blocks, peste cele vechi.
+  2. Deschide bot.cpp și citește comentariile de la început: explică tot ce poți citi și ce trebuie să scrii.
+  3. În bot.cpp completează bsc_token (îl creezi pe pagina „Cont” din site). Adresa platformei
+     (bsc_url) este deja completată de organizatori; dacă nu, cere-o de la ei.
+  4. Creează un lobby în site, apoi rulează programul (F9). Scrie codul lobby-ului când ți-l cere.
+  5. În site apeși „Start” când ambii jucători sunt conectați.
+
+NU E NEVOIE SĂ INSTALEZI NIMIC și nu trebuie să adaugi biblioteci în Code::Blocks.
+
+CONEXIUNEA
+  Programul se conectează prin ws:// (fără criptare). Pentru asta organizatorul trebuie să fi
+  activat „Allow ws://” pentru contul tău. Dacă primești mesajul "tls_required" sau "cod 4403",
+  cere-i să o activeze. Tokenul tău circulă necriptat pe rețea: folosește-l doar în rețeaua
+  de încredere a evenimentului, iar dacă ai dubii, înlocuiește-l de pe pagina „Cont”.

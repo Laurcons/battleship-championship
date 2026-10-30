@@ -17,3 +17,7 @@ Both read their settings from environment variables:
 The fixed fleet layout puts ship *i* on row `2*i`, starting at column 0, pointing right. It is legal for the classic fleet on a 10x10 board and for any ruleset where the board is wide and tall enough.
 
 These examples are under the MIT licence (see `LICENSE` in this folder), unlike the rest of the repository, which is AGPL-3.0. Copy them freely as the start of your own program.
+
+## C++ for beginners (`cpp/`)
+
+A different kind of example: a **shim** (`bsc.h` and `bsc.cpp`, no libraries needed) that handles the connection, so a student only writes four functions in `bot.cpp` (place ships, choose a shot, game over, reset) and reads plain global variables. Everything is documented, in Romanian, in `bot.cpp`. It connects over plain `ws://`, so the admin must switch on *Allow ws://* for the participant. See `cpp/README.md` for how to build the zip for students.
