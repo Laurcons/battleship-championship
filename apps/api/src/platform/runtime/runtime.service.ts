@@ -47,7 +47,12 @@ export class RuntimeService implements BeforeApplicationShutdown {
       this.runtimes.get(lobby.id)?.destroy('The lobby was deleted.');
       this.runtimes.delete(lobby.id);
     });
-    accounts.onTokenReplaced((participantId) => this.dropParticipant(participantId, 'Token replaced: connection closed (close code 4000).'));
+    accounts.onTokenReplaced((participantId, why) =>
+      this.dropParticipant(
+        participantId,
+        why === 'reset' ? 'Token reset by an admin: connection closed (close code 4000).' : 'Token replaced: connection closed (close code 4000).',
+      ),
+    );
   }
 
   private ownerName(owner: SeatOwnerRow): string {

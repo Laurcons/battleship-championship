@@ -10,6 +10,7 @@ const participant = (over: Partial<ParticipantRow> = {}): ParticipantRow => ({
   tokenCreatedAt: null,
   tokenReplaced: false,
   tokenNoticeAt: null,
+  allowInsecure: false,
   createdAt: 1_000,
   ...over,
 });
@@ -84,12 +85,12 @@ export function describeStoreContract(name: string, create: () => Promise<{ stor
 
     it('stores participants, updates them in place, and enforces unique names and token hashes', async () => {
       await store.saveParticipant(participant());
-      await store.saveParticipant(participant({ id: 'p_2', name: 'Bruno', tokenHash: 'a'.repeat(64), tokenPreview: 'wxyz', tokenCreatedAt: 5, tokenReplaced: true, tokenNoticeAt: 9 }));
+      await store.saveParticipant(participant({ id: 'p_2', name: 'Bruno', tokenHash: 'a'.repeat(64), tokenPreview: 'wxyz', tokenCreatedAt: 5, tokenReplaced: true, tokenNoticeAt: 9, allowInsecure: true }));
       await store.saveParticipant(participant({ name: 'Alice B.' }));
       const rows = await store.listParticipants();
       expect(rows.map((r) => r.name).sort()).toEqual(['Alice B.', 'Bruno']);
       expect(rows.find((r) => r.id === 'p_2')).toEqual(
-        participant({ id: 'p_2', name: 'Bruno', tokenHash: 'a'.repeat(64), tokenPreview: 'wxyz', tokenCreatedAt: 5, tokenReplaced: true, tokenNoticeAt: 9 }),
+        participant({ id: 'p_2', name: 'Bruno', tokenHash: 'a'.repeat(64), tokenPreview: 'wxyz', tokenCreatedAt: 5, tokenReplaced: true, tokenNoticeAt: 9, allowInsecure: true }),
       );
       await expect(store.saveParticipant(participant({ id: 'p_3', name: 'Bruno' }))).rejects.toThrow();
       await expect(store.saveParticipant(participant({ id: 'p_3', name: 'Cleo', tokenHash: 'a'.repeat(64) }))).rejects.toThrow();

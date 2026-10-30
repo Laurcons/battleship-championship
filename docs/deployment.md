@@ -18,7 +18,7 @@ All settings are environment variables; see `.env.example` for the full list.
 |---|---|
 | `DATABASE_URL` | `mysql://user:password@host:3306/database`. Required in production. |
 | `PUBLIC_ORIGIN` | The public address, e.g. `https://battleships.example.com`. Required in production; used for the cross-site request check. |
-| `TRUST_PROXY_HOPS` | How many reverse proxies sit in front of the app. Behind Coolify's proxy: `1`. With `0` the client address is the socket address, which is wrong behind a proxy (all logins would share one rate limit). Never set it higher than the real number: clients could then forge their address. |
+| `TRUST_PROXY_HOPS` | How many reverse proxies sit in front of the app. Behind Coolify's proxy: `1`. With `0` the client address is the socket address, which is wrong behind a proxy (all logins would share one rate limit). Never set it higher than the real number: clients could then forge their address. The same setting decides whether the platform believes the proxy's `X-Forwarded-Proto` header, which is how it tells `wss://` from `ws://` (the container itself only speaks plain HTTP). With `0`, **every** program connection counts as plain, so only participants with *Allow ws://* can connect. |
 | `SHARED_PASSWORD_HASH`, `ADMIN_PASSWORD_HASH`, `ADMIN_USERNAME` | Credentials. Plain-text variants exist for local use only and are refused in production. |
 | `MOVE_TIMEOUT_MS`, `PLACE_TIMEOUT_MS`, `GRACE_MS`, `IDLE_EXPIRY_MS`, `MAX_OPEN_LOBBIES`, `MAX_STRIKES` | The platform constants (defaults: 10 s, 10 s, 60 s, 2 h, 10, 3). |
 
@@ -29,7 +29,7 @@ The container applies database migrations on start (`prisma migrate deploy`), th
 1. Create the MariaDB resource and a persistent volume for its data.
 2. Create the application from the repository's `Dockerfile`. Set the variables above. Expose port 3000.
 3. **Disable rolling deployments.** Two instances at once would split the games and double-run batteries. A deploy stops the old container, then starts the new one.
-4. Check **WebSocket support** through the proxy: `wss://<host>/program/v1` must upgrade (the example programs are a quick test).
+4. Check **WebSocket support** through the proxy: `wss://<host>/program/v1` must upgrade (the example programs are a quick test). The proxy must send `X-Forwarded-Proto` (Coolify's does). Plain `ws://` is refused per participant unless the admin switches *Allow ws://* on; if the proxy redirects HTTP to HTTPS, plain `ws://` needs its own entry point.
 5. Check that `TRUST_PROXY_HOPS=1` gives real client addresses: failed logins from two networks must not share a rate limit.
 6. Redeploy once and confirm the database volume survives and that the platform comes back with its lobbies. A battery that was running waits for its programs to reconnect.
 

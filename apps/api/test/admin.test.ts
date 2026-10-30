@@ -45,16 +45,13 @@ describe('participants (admin)', () => {
     expect((await admin.del(`/api/admin/participants/${created.body.id}`)).status).toBe(404);
   });
 
-  it('refuses to delete a participant who is in a lobby', async () => {
+  it('deletes a participant together with the lobbies they are in', async () => {
     const bruno = t.client();
     await bruno.loginAs(t.people.Bruno as string);
     const lobby = await bruno.post('/api/lobbies', { opponent: { kind: 'participant', participantId: t.people.Chen }, rulesetId: 'classic-10x10' });
     expect(lobby.status).toBe(201);
-    const refused = await admin.del(`/api/admin/participants/${t.people.Chen}`);
-    expect(refused.status).toBe(409);
-    expect(refused.body.error.message).toMatch(/1 lobby/);
-    await bruno.del(`/api/lobbies/${lobby.body.id}`);
     expect((await admin.del(`/api/admin/participants/${t.people.Chen}`)).status).toBe(204);
+    expect((await bruno.get(`/api/lobbies/${lobby.body.id}`)).status).toBe(404);
   });
 
   it('logs a deleted participant out', async () => {

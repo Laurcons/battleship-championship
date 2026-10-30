@@ -40,7 +40,9 @@ export class AdminApi {
 
   async person(prefix: string): Promise<string> {
     const name = `${prefix}${uid()}`;
-    await this.call('POST', '/api/admin/participants', { name });
+    const created = await this.call('POST', '/api/admin/participants', { name });
+    // The programs below speak plain ws://, which accounts forbid by default.
+    await this.call('PATCH', `/api/admin/participants/${created.id}`, { allowInsecure: true });
     return name;
   }
 }

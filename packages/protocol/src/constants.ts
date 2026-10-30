@@ -34,6 +34,7 @@ export const STANDALONE_ERROR_CODES = [
   'ruleset_mismatch',
   'lobby_full',
   'hello_timeout',
+  'tls_required',
 ] as const;
 export type StandaloneErrorCode = (typeof STANDALONE_ERROR_CODES)[number];
 
@@ -42,6 +43,7 @@ export const CLOSE = {
   CLOSED_BY_PLATFORM: 4000,
   BAD_REQUEST: 4400,
   AUTH_FAILED: 4401,
+  TLS_REQUIRED: 4403,
   HELLO_TIMEOUT: 4408,
   LOBBY_FULL: 4409,
   RULESET_MISMATCH: 4426,

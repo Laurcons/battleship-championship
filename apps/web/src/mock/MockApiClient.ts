@@ -56,6 +56,8 @@ export function createMockApiClient(server: MockServer, latencyMs = 120): ApiCli
       createParticipant: (name) => call(() => server.adminCreateParticipant(name)),
       renameParticipant: (id, name) => call(() => server.adminRenameParticipant(id, name)),
       deleteParticipant: (id) => call(() => server.adminDeleteParticipant(id)),
+      resetParticipantToken: (id) => call(() => server.adminResetParticipantToken(id)),
+      setParticipantInsecure: (id, allowed) => call(() => server.adminSetParticipantInsecure(id, allowed)),
       createRuleset: (r) => call(() => server.adminCreateRuleset(r)),
       setRulesetEnabled: (id, enabled) => call(() => server.adminSetRulesetEnabled(id, enabled)),
       setDefaultRuleset: (id) => call(() => server.adminSetDefaultRuleset(id)),

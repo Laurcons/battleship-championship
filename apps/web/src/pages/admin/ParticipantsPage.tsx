@@ -26,6 +26,10 @@ function ParticipantsAdmin() {
   const list = useQuery({ queryKey: keys.admin.participants, queryFn: () => api.admin.listParticipants() });
   const [renaming, setRenaming] = useState<AdminParticipant | null>(null);
   const [deleting, setDeleting] = useState<AdminParticipant | null>(null);
+  const [resetting, setResetting] = useState<AdminParticipant | null>(null);
+  // The lobbies that go with a deleted participant, so the dialog can say whose results are lost.
+  const allLobbies = useQuery({ queryKey: keys.admin.lobbies, queryFn: () => api.admin.listAllLobbies(), enabled: !!deleting });
+  const doomed = deleting ? (allLobbies.data ?? []).filter((l) => l.seats.some((s) => s.owner.kind === 'participant' && s.owner.participantId === deleting.id)) : [];
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: keys.admin.participants });
     void qc.invalidateQueries({ queryKey: keys.participants });
@@ -43,9 +47,23 @@ function ParticipantsAdmin() {
     onSuccess: () => {
       setDeleting(null);
       refresh();
+      void qc.invalidateQueries({ queryKey: keys.admin.lobbies });
+      void qc.invalidateQueries({ queryKey: keys.lobbies });
     },
     // close the dialog so the error is visible on the page
     onError: () => setDeleting(null),
+  });
+  const resetToken = useMutation({
+    mutationFn: (id: string) => api.admin.resetParticipantToken(id),
+    onSuccess: () => {
+      setResetting(null);
+      refresh();
+    },
+    onError: () => setResetting(null),
+  });
+  const setInsecure = useMutation({
+    mutationFn: ({ id, allowed }: { id: string; allowed: boolean }) => api.admin.setParticipantInsecure(id, allowed),
+    onSuccess: refresh,
   });
   const addForm = useForm({ resolver: zodResolver(nameSchema), defaultValues: { name: '' } });
   const renameForm = useForm({ resolver: zodResolver(nameSchema), values: { name: renaming?.name ?? '' } });
@@ -54,7 +72,11 @@ function ParticipantsAdmin() {
     <>
       <h1 className="h3 mb-3">Participants</h1>
       <p className="text-body-secondary">These names appear in the login dropdown once the shared password has been entered.</p>
-      <ErrorAlert error={list.error ?? create.error ?? remove.error} />
+      <p className="text-body-secondary">
+        Programs must connect over <code>wss://</code> (TLS). Switch on <em>Allow ws://</em> for a participant whose program cannot do TLS: their token then travels unencrypted, so use it on a trusted network only.
+        Switching it off disconnects that participant&apos;s plain connections.
+      </p>
+      <ErrorAlert error={list.error ?? create.error ?? remove.error ?? resetToken.error ?? setInsecure.error} />
       <Form
         noValidate
         className="mb-4"
@@ -82,6 +104,7 @@ function ParticipantsAdmin() {
               <th>Lobbies</th>
               <th>Created</th>
               <th>Token</th>
+              <th>Allow ws://</th>
               <th />
             </tr>
           </thead>
@@ -92,9 +115,33 @@ function ParticipantsAdmin() {
                 <td>{p.lobbyCount}</td>
                 <td className="small">{formatDateTime(p.createdAt)}</td>
                 <td className="small">{p.tokenCreatedAt ? `Created ${formatDateTime(p.tokenCreatedAt)}` : <span className="text-body-secondary">Not created yet</span>}</td>
+                <td>
+                  <Form.Check
+                    type="switch"
+                    id={`insecure-${p.id}`}
+                    aria-label={`Allow ws:// for ${p.name}`}
+                    checked={p.allowInsecure}
+                    disabled={setInsecure.isPending}
+                    onChange={(e) => {
+                      create.reset();
+                      remove.reset();
+                      setInsecure.mutate({ id: p.id, allowed: e.target.checked });
+                    }}
+                  />
+                </td>
                 <td className="text-end">
                   <Button size="sm" variant="outline-secondary" className="me-2" onClick={() => setRenaming(p)} aria-label={`Rename ${p.name}`}>
                     Rename
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline-warning"
+                    className="me-2"
+                    disabled={!p.tokenCreatedAt}
+                    onClick={() => setResetting(p)}
+                    aria-label={`Reset token of ${p.name}`}
+                  >
+                    Reset token
                   </Button>
                   <Button size="sm" variant="outline-danger" onClick={() => setDeleting(p)} aria-label={`Delete ${p.name}`}>
                     Delete
@@ -141,7 +188,39 @@ function ParticipantsAdmin() {
           remove.mutate(deleting.id);
         }}
       >
-        A participant who is part of any lobby cannot be deleted: delete those lobbies first.
+        {doomed.length === 0 ? (
+          <p className="mb-0">{allLobbies.isLoading ? 'Checking their lobbies…' : `${deleting?.name} is not part of any lobby.`}</p>
+        ) : (
+          <>
+            <p>
+              This also deletes <strong data-testid="doomed-count">{doomed.length}</strong> lobb{doomed.length === 1 ? 'y' : 'ies'} with their games and results, including lobbies created by other participants:
+            </p>
+            <ul className="mb-0" data-testid="doomed-lobbies">
+              {doomed.map((l) => (
+                <li key={l.id}>
+                  <span className="mono">{l.id}</span>: {l.seats[0].owner.name} vs {l.seats[1].owner.name}
+                  {l.createdBy.id !== deleting?.id && <span className="text-body-secondary"> (created by {l.createdBy.name})</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </ConfirmModal>
+      <ConfirmModal
+        show={!!resetting}
+        title={`Reset the token of ${resetting?.name}?`}
+        confirmLabel="Reset token"
+        variant="warning"
+        busy={resetToken.isPending}
+        onCancel={() => setResetting(null)}
+        onConfirm={() => {
+          if (!resetting) return;
+          create.reset();
+          remove.reset();
+          resetToken.mutate(resetting.id);
+        }}
+      >
+        Their current token stops working and their connected programs are disconnected. They will see a notice on the Account page and create a new token themselves; you never see it.
       </ConfirmModal>
     </>
   );

@@ -23,6 +23,8 @@ export interface ProgramOptions {
   delayMs?: number;
   /** Skip sending hello (to test handshake failures). */
   noHello?: boolean;
+  /** Extra headers on the upgrade request (for example `x-forwarded-proto`). */
+  headers?: Record<string, string>;
 }
 
 /** A scripted program speaking the real wire protocol over a real WebSocket. */
@@ -63,7 +65,7 @@ export class TestProgram {
   }
 
   static async connect(baseUrl: string, options: ProgramOptions): Promise<TestProgram> {
-    const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/program/v1`);
+    const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/program/v1`, { headers: options.headers ?? {} });
     const p = new TestProgram(ws, options);
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());

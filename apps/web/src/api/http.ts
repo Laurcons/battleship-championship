@@ -116,6 +116,8 @@ export function createHttpApiClient(): ApiClient {
       createParticipant: (name) => post<AdminParticipant>('/api/admin/participants', { name }),
       renameParticipant: (id, name) => request<AdminParticipant>('PATCH', `/api/admin/participants/${enc(id)}`, { name }),
       deleteParticipant: (id) => request<void>('DELETE', `/api/admin/participants/${enc(id)}`),
+      resetParticipantToken: (id) => post<AdminParticipant>(`/api/admin/participants/${enc(id)}/token/reset`),
+      setParticipantInsecure: (id, allowInsecure) => request<AdminParticipant>('PATCH', `/api/admin/participants/${enc(id)}`, { allowInsecure }),
       createRuleset: (ruleset) => post<RulesetInfo>('/api/admin/rulesets', ruleset),
       setRulesetEnabled: (id, enabled) => request<RulesetInfo>('PATCH', `/api/admin/rulesets/${enc(id)}`, { enabled }),
       setDefaultRuleset: (id) => post<RulesetInfo>(`/api/admin/rulesets/${enc(id)}/default`),

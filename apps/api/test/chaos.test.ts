@@ -87,6 +87,7 @@ describe('hostile HTTP clients', () => {
     ['POST', '/api/lobbies'],
     ['POST', '/api/admin/participants'],
     ['PATCH', '/api/admin/participants/x'],
+    ['POST', '/api/admin/participants/x/token/reset'],
     ['POST', '/api/admin/rulesets'],
     ['PATCH', '/api/admin/rulesets/classic-10x10'],
     ['PATCH', '/api/admin/settings'],

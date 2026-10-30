@@ -64,6 +64,7 @@ const rows: Row[] = [
   { method: 'POST', path: () => '/api/admin/participants', body: { name: 'Zed' }, expect: { anonymous: 401, admin: 201, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'PATCH', path: ({ alice }) => `/api/admin/participants/${alice}`, body: { name: 'Alice' }, expect: { anonymous: 401, admin: 200, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'DELETE', path: () => '/api/admin/participants/p_nobody', expect: { anonymous: 401, admin: 404, Alice: 403, Bruno: 403, Chen: 403 } },
+  { method: 'POST', path: () => '/api/admin/participants/p_nobody/token/reset', expect: { anonymous: 401, admin: 404, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'POST', path: () => '/api/admin/rulesets', body: { id: 'x' }, expect: { anonymous: 401, admin: 400, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'PATCH', path: () => '/api/admin/rulesets/classic-10x10', body: { enabled: true }, expect: { anonymous: 401, admin: 200, Alice: 403, Bruno: 403, Chen: 403 } },
   { method: 'POST', path: () => '/api/admin/rulesets/classic-10x10/default', expect: { anonymous: 401, admin: 200, Alice: 403, Bruno: 403, Chen: 403 } },

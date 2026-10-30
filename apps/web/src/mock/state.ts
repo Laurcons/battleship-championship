@@ -19,6 +19,7 @@ export interface ParticipantRec {
   tokenCreatedAt: number | null;
   tokenReplaced: boolean;
   tokenNotice: { at: number } | null;
+  allowInsecure: boolean;
   createdAt: number;
 }
 

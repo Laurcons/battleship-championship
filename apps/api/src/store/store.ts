@@ -11,6 +11,8 @@ export interface ParticipantRow {
   tokenCreatedAt: number | null;
   tokenReplaced: boolean;
   tokenNoticeAt: number | null;
+  /** Admin policy: may this participant's programs connect over plain `ws://`? Off by default. */
+  allowInsecure: boolean;
   createdAt: number;
 }
 

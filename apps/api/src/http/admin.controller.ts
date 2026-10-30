@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Patch, Post } from '@nestjs/common';
 import {
   participantNameSchema,
+  participantPatchSchema,
   rulesetSchema,
   setEnabledSchema,
   updateSettingsSchema,
@@ -44,18 +45,29 @@ export class AdminController {
   }
 
   @Patch('participants/:id')
-  renameParticipant(
+  async patchParticipant(
     @CurrentAdmin() a: Admin,
     @Param('id') id: string,
-    @Body(new ZodPipe(participantNameSchema)) body: { name: string },
+    @Body(new ZodPipe(participantPatchSchema)) body: { name?: string; allowInsecure?: boolean },
   ): Promise<AdminParticipant> {
-    return this.accounts.rename(who(a), id, body.name);
+    let result: AdminParticipant | undefined;
+    if (body.name !== undefined) result = await this.accounts.rename(who(a), id, body.name);
+    if (body.allowInsecure !== undefined) result = await this.accounts.setAllowInsecure(who(a), id, body.allowInsecure);
+    return result as AdminParticipant;
   }
 
   @Delete('participants/:id')
   @HttpCode(204)
   async deleteParticipant(@CurrentAdmin() a: Admin, @Param('id') id: string): Promise<void> {
+    // Their lobbies go first, whoever created them; a participant who does not exist is a 404 from `delete`.
+    if (this.accounts.get(id)) await this.lobbies.deleteAllOf({ role: 'admin', username: a.username }, id);
     await this.accounts.delete(who(a), id);
+  }
+
+  @Post('participants/:id/token/reset')
+  @HttpCode(200)
+  resetToken(@CurrentAdmin() a: Admin, @Param('id') id: string): Promise<AdminParticipant> {
+    return this.accounts.resetToken(who(a), id);
   }
 
   @Post('rulesets')

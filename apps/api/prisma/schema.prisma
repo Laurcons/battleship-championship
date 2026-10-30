@@ -20,6 +20,8 @@ model Participant {
   tokenCreatedAt BigInt?
   tokenReplaced  Boolean @default(false)
   tokenNoticeAt  BigInt?
+  /// Admin policy: programs of this participant may connect over plain ws:// (otherwise only wss://).
+  allowInsecure  Boolean @default(false)
   createdAt      BigInt
 }
 

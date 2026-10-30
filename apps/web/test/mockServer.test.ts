@@ -383,7 +383,7 @@ describe('admin', () => {
     expect(code(() => server.adminCreateParticipant('<script>'))).toBe('validation');
     const eve = server.adminCreateParticipant('Eve');
     expect(server.adminRenameParticipant(eve.id, 'Evelyn').name).toBe('Evelyn');
-    expect(code(() => server.adminDeleteParticipant('p_alice'))).toBe('conflict');
+    expect(code(() => server.adminDeleteParticipant('p_missing'))).toBe('not_found');
     server.adminDeleteParticipant(eve.id);
     expect(server.adminListParticipants().some((p) => p.id === eve.id)).toBe(false);
   });
@@ -600,5 +600,79 @@ describe('default ruleset', () => {
     const reloaded = new MockServer(persistence);
     reloaded.setSession({ role: 'admin', username: 'admin' });
     expect(reloaded.listRulesets().filter((r) => r.isDefault).map((r) => r.ruleset.id)).toEqual(['classic-10x10']);
+  });
+});
+
+describe('admin: deleting participants and resetting tokens', () => {
+  const lobbyIds = () => {
+    admin();
+    return server.listLobbies().map((l) => l.id);
+  };
+
+  it('deletes the lobbies a participant has a seat in, including ones others created', () => {
+    bruno();
+    const foreign = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_dana' }, rulesetId: 'classic-10x10' });
+    dana();
+    const own = server.createLobby({ opponent: { kind: 'bot', bot: 'random' }, rulesetId: 'classic-10x10' });
+    const before = lobbyIds();
+    const unrelated = before.filter((id) => id !== foreign.id && id !== own.id);
+    expect(before).toEqual(expect.arrayContaining([foreign.id, own.id]));
+
+    admin();
+    server.adminDeleteParticipant('p_dana');
+
+    const after = lobbyIds();
+    expect(after).not.toContain(foreign.id);
+    expect(after).not.toContain(own.id);
+    // Dana's seeded lobbies are gone too; nobody else's lobbies are touched.
+    for (const l of server.listLobbies()) expect(l.seats.some((s) => s.owner.kind === 'participant' && s.owner.participantId === 'p_dana')).toBe(false);
+    expect(after.filter((id) => unrelated.includes(id)).length).toBe(after.length);
+    expect(server.adminListParticipants().map((p) => p.name)).not.toContain('Dana');
+    const log = server.adminListAuditLog();
+    expect(log.some((e) => e.action === 'lobby_deleted' && e.detail === 'with Dana')).toBe(true);
+    expect(log.some((e) => e.action === 'participant_deleted' && e.target === 'Dana')).toBe(true);
+  });
+
+  it('stops a battery that was running in a deleted lobby', async () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1);
+    server.connectProgram(lobby.id, 2);
+    server.startSeries(lobby.id, 50);
+    admin();
+    expect(code(() => server.adminDeleteParticipant('p_bruno'))).toBeNull();
+    expect(lobbyIds()).not.toContain(lobby.id);
+    alice();
+    expect(code(() => server.getLobby(lobby.id))).toBe('not_found');
+  });
+
+  it('resets a token: gone, programs dropped, owner notified, and a new one can be created', () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1);
+    expect(server.getLobby(lobby.id).seats[0].connection).toBe('connected');
+    admin();
+    const reset = server.adminResetParticipantToken('p_alice');
+    expect(reset).toMatchObject({ name: 'Alice', tokenCreatedAt: null });
+    expect(server.adminListAuditLog().some((e) => e.action === 'token_reset' && e.target === 'Alice')).toBe(true);
+
+    alice();
+    expect(server.getMyToken()).toMatchObject({ exists: false, preview: null, notice: { at: expect.any(Number) } });
+    expect(code(() => server.replaceToken())).toBe('conflict');
+    expect(server.getLobby(lobby.id).seats[0].connection).toBe('disconnected');
+    server.createToken();
+    expect(server.getMyToken()).toMatchObject({ exists: true, notice: null });
+  });
+
+  it('refuses to reset a token that does not exist, for an unknown participant, and for non-admins', () => {
+    admin();
+    server.adminCreateParticipant('Eve');
+    const eve = server.adminListParticipants().find((p) => p.name === 'Eve');
+    expect(code(() => server.adminResetParticipantToken(eve?.id as string))).toBe('conflict');
+    expect(code(() => server.adminResetParticipantToken('p_missing'))).toBe('not_found');
+    alice();
+    expect(code(() => server.adminResetParticipantToken('p_bruno'))).toBe('forbidden');
+    server.logout();
+    expect(code(() => server.adminResetParticipantToken('p_bruno'))).toBe('unauthenticated');
   });
 });

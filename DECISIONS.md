@@ -33,6 +33,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 ## 3. Accounts and authentication
 
 - **Participants** are managed by the admin (the list behind the name dropdown).
+- **Deleting a participant deletes every lobby in which they have a seat**, including lobbies other participants created with them as the opponent, with their games and results. The confirmation lists those lobbies first. The audit log records each deleted lobby (`lobby_deleted`, detail `with <name>`) and then `participant_deleted`.
 - Participants log in by entering a **global shared password**, then selecting their name from a dropdown. There is no per-participant password. (Deliberate: less friction.)
 - The shared password is long and random, stored hashed, and login is rate-limited per IP. The forwarded-IP header is trusted only from Coolify's proxy.
 - **Admin** logs in separately with username and password.
@@ -55,7 +56,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 - A program identifies itself with:
   - an **account-level token** that does not change unless the participant replaces it. Replacing invalidates the old token and drops its connections;
   - the **lobby id**.
-- **Tokens are created by the participant, on demand.** A new participant has no token. On the Account page they create one, and the full token is shown once, at that moment; the platform keeps only a hash and the last four characters. Until a token exists, programs cannot authenticate. Later the token page offers "Replace token" (with a warning that connected programs are disconnected), never "regenerate". The audit log distinguishes `token_created` from `token_replaced`.
+- **Tokens are created by the participant, on demand.** A new participant has no token. On the Account page they create one, and the full token is shown once, at that moment; the platform keeps only a hash and the last four characters. Until a token exists, programs cannot authenticate. Later the token page offers "Replace token" (with a warning that connected programs are disconnected), never "regenerate". The audit log distinguishes `token_created` from `token_replaced`. An admin can **reset** a participant's token (`token_reset`): it is cleared, the participant's programs are disconnected, and they see a notice on the Account page and create a new token themselves. The admin never sees or sets a token.
 - The lobby id is a human-readable, easy-to-copy, hard-to-enumerate string. It is a *locator*, not an authorization secret. Authorization is lobby membership.
 - **Seat allocation:** a connecting program takes the **first empty seat**. Order is irrelevant.
 - A participant may run multiple programs, including several in the same lobby against each other.

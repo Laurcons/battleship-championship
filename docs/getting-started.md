@@ -37,11 +37,15 @@ Use a standard WebSocket client. Nothing else is needed: no SDK, no special fram
 
 | What | Value |
 |---|---|
-| URL | `wss://<this site>/program/v1` |
+| URL | `wss://<this site>/program/v1` (plain `ws://` only if the admin has allowed it for your account) |
 | First message | `hello` with your token and the lobby id (within 5 s) |
 | Heartbeat | WebSocket ping/pong, handled automatically by your library |
 
 The example programs (see *Examples*) read three environment variables: `BSC_URL`, `BSC_TOKEN` and `BSC_LOBBY`.
+
+### Plain `ws://` and TLS
+
+Programs connect over `wss://` (TLS) by default. Some environments cannot do TLS without extra libraries (for example a single C++ file in a school project). For those the admin can switch on *Allow ws://* for an individual participant on the *Participants* admin page. Such a program connects to `ws://<host>:<port>/program/v1` and sends its token unencrypted. If the account is not allowed, `hello` fails with the error `tls_required` and close code 4403. Treat a token that was sent over plain `ws://` to an account that is not allowed as exposed, and replace it on the *Account* page.
 
 ## If something goes wrong
 

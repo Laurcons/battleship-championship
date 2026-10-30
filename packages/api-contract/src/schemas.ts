@@ -26,6 +26,11 @@ export const startSeriesSchema = z.object({ games: z.number().int().min(1).max(1
 
 export const participantNameSchema = z.object({ name: z.string().min(1).max(100) });
 
+/** Admin edit of a participant: a new name, the insecure-WebSocket policy, or both. */
+export const participantPatchSchema = z
+  .object({ name: z.string().min(1).max(100).optional(), allowInsecure: z.boolean().optional() })
+  .refine((v) => v.name !== undefined || v.allowInsecure !== undefined, { message: 'Nothing to change.' });
+
 export const rulesetSchema = z.object({
   id: z.string().max(40),
   description: z.string().max(1000),

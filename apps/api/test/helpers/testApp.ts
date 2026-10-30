@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- the test client returns untyped JSON on purpose */
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createApp } from '../../src/bootstrap.js';
+import { AccountsService } from '../../src/platform/accounts.service.js';
 import { loadConfig, type Config } from '../../src/config.js';
 import { MemoryStore } from '../../src/store/memory.js';
 import type { Store } from '../../src/store/store.js';
@@ -74,13 +75,13 @@ export interface TestApp {
   store: Store;
   url: string;
   client(): Client;
-  /** Admin-created participants by name. */
+  /** Admin-created participants by name. They may use plain ws:// unless the app was started with `secureOnly`. */
   people: Record<string, string>;
   close(): Promise<void>;
 }
 
 export async function startTestApp(
-  options: { env?: Record<string, string>; names?: string[]; clock?: Clock; store?: Store } = {},
+  options: { env?: Record<string, string>; names?: string[]; clock?: Clock; store?: Store; secureOnly?: boolean } = {},
 ): Promise<TestApp> {
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -101,6 +102,8 @@ export async function startTestApp(
   for (const name of options.names ?? ['Alice', 'Bruno', 'Chen']) {
     const r = await admin.post('/api/admin/participants', { name });
     people[name] = r.body.id;
+    // The tests speak plain ws://, which accounts forbid by default; tests of that policy opt out.
+    if (!options.secureOnly) await app.get(AccountsService).setAllowInsecure('(test setup)', r.body.id, true);
   }
   return { app, config, store, url, client: make, people, close: () => app.close() };
 }

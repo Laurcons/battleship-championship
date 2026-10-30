@@ -163,6 +163,8 @@ export interface AdminParticipant extends ParticipantRef {
   /** When the participant created their token; null if they have none yet. */
   tokenCreatedAt: number | null;
   lobbyCount: number;
+  /** May this participant's programs connect over plain ws://? Off by default: only wss:// is accepted. */
+  allowInsecure: boolean;
 }
 
 export interface PlatformSettings {

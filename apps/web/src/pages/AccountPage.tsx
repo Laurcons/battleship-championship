@@ -51,7 +51,15 @@ export function AccountPage() {
 
       {data?.notice && (
         <Alert variant="warning" data-testid="token-notice" dismissible onClose={() => acknowledge.mutate()}>
-          <strong>Your token was replaced</strong> at {formatDateTime(data.notice.at)} from another session. Your running programs were disconnected. If that was not you, tell the admin.
+          {data.exists ? (
+            <>
+              <strong>Your token was replaced</strong> at {formatDateTime(data.notice.at)} from another session. Your running programs were disconnected. If that was not you, tell the admin.
+            </>
+          ) : (
+            <>
+              <strong>An admin reset your token</strong> at {formatDateTime(data.notice.at)}. Your running programs were disconnected. Create a new token below and give it to your programs.
+            </>
+          )}
         </Alert>
       )}
 

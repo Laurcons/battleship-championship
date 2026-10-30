@@ -5,6 +5,7 @@ This is the protocol the platform implements. The zod schemas in `packages/proto
 ## 1. Transport
 
 - Endpoint: `wss://<host>/program/v1`. The protocol version is in the path, so the server can route before parsing any frame.
+- **Plain `ws://` is refused unless the admin has allowed it for your account** (admin page *Participants*, switch *Allow ws://*). Without it the platform answers `hello` with a fatal `tls_required` error and closes with code 4403. Over plain `ws://` the token travels unencrypted, so only use it on a network you trust.
 - One JSON object per **text** frame, UTF-8. Binary frames are rejected. No `permessage-deflate`.
 - Inbound frames (program to platform) are at most 16 KiB.
 - **Heartbeat uses WebSocket-level ping/pong**, not JSON messages. The server pings every 15 s, and any standard WebSocket library answers automatically. No pong within 30 s means the connection is dead.
@@ -240,7 +241,7 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 
 `error.code` values for gameplay errors (in `turn.error` / `place.error`): `out_of_bounds`, `already_fired`, `bad_fleet`, `ship_out_of_bounds`, `ships_overlap`, `ships_touching`, `bad_shape`.
 
-Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `bad_hello`, `auth_failed`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
+Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `bad_hello`, `auth_failed`, `tls_required`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
 
 WebSocket close codes (after a fatal condition at connect time):
 
@@ -248,12 +249,13 @@ WebSocket close codes (after a fatal condition at connect time):
 |---|---|
 | 4400 | bad request (invalid `hello`) |
 | 4401 | `auth_failed`: bad token, unknown lobby, or not allowed. The platform deliberately does not distinguish these. |
+| 4403 | `tls_required`: the token is valid, but the account may not connect over plain `ws://`. Only sent after authentication. |
 | 4408 | no `hello` within 5 s |
 | 4409 | lobby has no empty seat |
 | 4426 | none of the `accepts` rulesets matches the lobby's ruleset. Only sent after authentication; the message names the lobby's ruleset. |
 | 4429 | rate limited |
 | 4500 | internal error |
-| 4000 | the platform closed the connection normally (lobby closed, token replaced) |
+| 4000 | the platform closed the connection normally (lobby closed, token replaced, `ws://` no longer allowed for the account) |
 
 ## 8. What was optimized (review notes)
 

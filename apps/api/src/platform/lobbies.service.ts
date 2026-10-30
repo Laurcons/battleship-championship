@@ -375,14 +375,29 @@ export class LobbiesService {
     return this.lock.run(async () => {
       const lobby = this.getFor(viewer, id);
       if (!canDeleteLobby(viewer, lobby)) throw new ApiError('forbidden', 'You cannot delete this lobby.');
-      this.lobbies.delete(id);
-      const timer = this.activitySaves.get(id);
-      if (timer) clearTimeout(timer);
-      this.activitySaves.delete(id);
-      for (const l of this.deleteListeners) l(lobby);
-      await this.store.deleteLobby(id);
-      await this.audit.record(actorName(viewer), 'lobby_deleted', id);
+      await this.remove(actorName(viewer), lobby);
     });
+  }
+
+  /** Deletes every lobby in which the participant has a seat, whoever created it. Returns how many. */
+  deleteAllOf(viewer: Viewer, participantId: string): Promise<number> {
+    return this.lock.run(async () => {
+      if (viewer.role !== 'admin') throw new ApiError('forbidden', 'Only an admin can do this.');
+      const doomed = [...this.lobbies.values()].filter((l) => l.row.seats.some((s) => s.kind === 'participant' && s.participantId === participantId));
+      for (const lobby of doomed) await this.remove(actorName(viewer), lobby, `with ${this.accounts.nameOf(participantId)}`);
+      return doomed.length;
+    });
+  }
+
+  /** Must run inside the lock. */
+  private async remove(actor: string, lobby: Lobby, detail: string | null = null): Promise<void> {
+    this.lobbies.delete(lobby.id);
+    const timer = this.activitySaves.get(lobby.id);
+    if (timer) clearTimeout(timer);
+    this.activitySaves.delete(lobby.id);
+    for (const l of this.deleteListeners) l(lobby);
+    await this.store.deleteLobby(lobby.id);
+    await this.audit.record(actor, 'lobby_deleted', lobby.id, detail);
   }
 
   // --- series and games, written by the runtime ------------------------------------------------

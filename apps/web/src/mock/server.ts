@@ -452,6 +452,7 @@ export class MockServer implements RunnerHost {
     p.token = newToken();
     p.tokenCreatedAt = this.now();
     p.tokenReplaced = false;
+    p.tokenNotice = null;
     this.audit(p.name, 'token_created');
     return { token: p.token };
   }
@@ -759,6 +760,7 @@ export class MockServer implements RunnerHost {
       createdAt: p.createdAt,
       tokenCreatedAt: p.tokenCreatedAt,
       lobbyCount: this.state.lobbies.filter((l) => l.seats.some((s) => s.owner.kind === 'participant' && s.owner.participantId === p.id)).length,
+      allowInsecure: p.allowInsecure,
     };
   }
 
@@ -787,6 +789,7 @@ export class MockServer implements RunnerHost {
       tokenCreatedAt: null,
       tokenReplaced: false,
       tokenNotice: null,
+      allowInsecure: false,
       createdAt: this.now(),
     };
     this.state.participants.push(p);
@@ -809,16 +812,44 @@ export class MockServer implements RunnerHost {
     return this.adminParticipant(p);
   }
 
+  adminSetParticipantInsecure(id: string, allowed: boolean): AdminParticipant {
+    const admin = this.requireAdmin();
+    const p = this.participant(id);
+    if (!p) throw new ApiError('not_found', 'Participant not found.');
+    if (p.allowInsecure !== allowed) {
+      p.allowInsecure = allowed;
+      this.audit(`admin:${admin.username}`, allowed ? 'insecure_allowed' : 'insecure_forbidden', p.name);
+    }
+    return this.adminParticipant(p);
+  }
+
   adminDeleteParticipant(id: string): void {
     const admin = this.requireAdmin();
     const p = this.participant(id);
     if (!p) throw new ApiError('not_found', 'Participant not found.');
-    const lobbies = this.adminParticipant(p).lobbyCount;
-    if (lobbies > 0) {
-      throw new ApiError('conflict', `${p.name} is part of ${lobbies} lobb${lobbies === 1 ? 'y' : 'ies'}. Delete those first.`);
+    for (const lobby of this.state.lobbies.filter((l) => l.seats.some((s) => s.owner.kind === 'participant' && s.owner.participantId === id))) {
+      this.runners.get(lobby.id)?.stop();
+      this.runners.delete(lobby.id);
+      this.subscribers.delete(lobby.id);
+      this.state.lobbies = this.state.lobbies.filter((l) => l.id !== lobby.id);
+      this.audit(`admin:${admin.username}`, 'lobby_deleted', lobby.id, `with ${p.name}`);
     }
     this.state.participants = this.state.participants.filter((x) => x.id !== id);
     this.audit(`admin:${admin.username}`, 'participant_deleted', p.name);
+  }
+
+  adminResetParticipantToken(id: string): AdminParticipant {
+    const admin = this.requireAdmin();
+    const p = this.participant(id);
+    if (!p) throw new ApiError('not_found', 'Participant not found.');
+    if (!p.token) throw new ApiError('conflict', `${p.name} has no token to reset.`);
+    p.token = null;
+    p.tokenCreatedAt = null;
+    p.tokenReplaced = false;
+    p.tokenNotice = { at: this.now() };
+    this.dropConnections(p.id, 'Token reset by an admin: connection closed (close code 4000).');
+    this.audit(`admin:${admin.username}`, 'token_reset', p.name);
+    return this.adminParticipant(p);
   }
 
   adminCreateRuleset(ruleset: Ruleset): RulesetInfo {

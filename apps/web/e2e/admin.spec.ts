@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { connectPrograms, createLobby, freshApp, loginAs, loginAsAdmin, logout, openLobbyWith, startBattery } from './helpers';
+import { connectPrograms, createLobby, expectNoAxeViolations, freshApp, loginAs, loginAsAdmin, logout, openLobbyWith, startBattery } from './helpers';
 
 test.describe('admin', () => {
   test('manages participants, and new names show up in the login dropdown', async ({ page }) => {
@@ -24,16 +24,109 @@ test.describe('admin', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByTestId('participants-table')).toContainText('Evelyn');
 
+    // Deleting a participant also deletes every lobby they sit in, and the dialog says which.
     await page.getByRole('button', { name: 'Delete Alice' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Delete participant' }).click();
-    await expect(page.getByTestId('error-alert')).toContainText('part of 3 lobbies');
-    await page.keyboard.press('Escape');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('This also deletes');
+    await expect(dialog.getByTestId('doomed-count')).toHaveText('3');
+    await expect(dialog.getByTestId('doomed-lobbies').getByRole('listitem')).toHaveCount(3);
+    await expect(dialog.getByTestId('doomed-lobbies')).toContainText('Alice vs');
+    await dialog.getByRole('button', { name: 'Delete participant' }).click();
+    await expect(page.getByTestId('participants-table')).not.toContainText('Alice');
+    await expect(page.getByTestId('error-alert')).toHaveCount(0);
 
     await logout(page);
     await page.getByRole('link', { name: 'Participant login' }).click();
     await page.getByLabel('Shared password').fill('battleship');
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByLabel('Your name').locator('option')).toContainText(['Select your name…', 'Alice', 'Bruno', 'Chen', 'Dana', 'Evelyn']);
+    await expect(page.getByLabel('Your name').locator('option')).toContainText(['Select your name…', 'Bruno', 'Chen', 'Dana', 'Evelyn']);
+    await expect(page.getByLabel('Your name').locator('option', { hasText: 'Alice' })).toHaveCount(0);
+  });
+
+  test('deleting a participant removes the lobbies of others that include them, and says so up front', async ({ page }) => {
+    await freshApp(page);
+    await loginAsAdmin(page);
+    await page.goto('/lobbies');
+    await expect(page.getByTestId('lobby-row').first()).toBeVisible();
+    const before = await page.getByTestId('lobby-row').count();
+    await page.goto('/admin/participants');
+    const row = page.getByTestId('participants-table').getByRole('row').filter({ hasText: 'Dana' });
+    const count = Number(await row.getByRole('cell').nth(1).textContent());
+    expect(count).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Delete Dana' }).click();
+    await expect(page.getByRole('dialog').getByTestId('doomed-count')).toHaveText(String(count));
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete participant' }).click();
+    await expect(page.getByTestId('participants-table')).not.toContainText('Dana');
+    await page.goto('/lobbies');
+    await expect(page.getByTestId('lobby-row')).toHaveCount(before - count);
+    await expect(page.getByTestId('lobby-row').filter({ hasText: 'Dana' })).toHaveCount(0);
+    await page.goto('/admin/audit');
+    await expect(page.getByText('participant_deleted')).toBeVisible();
+    await expect(page.getByText('lobby_deleted').first()).toBeVisible();
+  });
+
+  test('a participant without lobbies is deleted with a plain confirmation', async ({ page }) => {
+    await freshApp(page);
+    await loginAsAdmin(page);
+    await page.goto('/admin/participants');
+    await page.getByLabel('Add a participant').fill('Eve');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete Eve' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Eve is not part of any lobby.');
+    await expect(page.getByRole('dialog').getByTestId('doomed-lobbies')).toHaveCount(0);
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete participant' }).click();
+    await expect(page.getByTestId('participants-table')).not.toContainText('Eve');
+  });
+
+  test('resets a participant token: they are told, and create a new one', async ({ page }) => {
+    await freshApp(page);
+    await loginAsAdmin(page);
+    await page.goto('/admin/participants');
+    const row = page.getByTestId('participants-table').getByRole('row').filter({ hasText: 'Chen' });
+    await expect(row).toContainText('Created');
+    await page.getByRole('button', { name: 'Reset token of Chen' }).click();
+    await expect(page.getByRole('dialog')).toContainText('you never see it');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expect(row).toContainText('Created'); // cancelling changes nothing
+
+    await page.getByRole('button', { name: 'Reset token of Chen' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Reset token' }).click();
+    await expect(row).toContainText('Not created yet');
+    await expect(page.getByRole('button', { name: 'Reset token of Chen' })).toBeDisabled(); // nothing left to reset
+    await expect(page.getByRole('button', { name: 'Reset token of Dana' })).toBeEnabled();
+    await page.goto('/admin/audit');
+    await expect(page.getByText('token_reset')).toBeVisible();
+
+    await logout(page);
+    await loginAs(page, 'Chen');
+    await page.getByRole('link', { name: 'Account' }).click();
+    await expect(page.getByTestId('token-notice')).toContainText('An admin reset your token');
+    await expect(page.getByTestId('no-token')).toContainText("You don't have a token yet");
+    await expectNoAxeViolations(page, 'account page after an admin reset the token');
+    await page.getByRole('button', { name: 'Create my token' }).click();
+    await expect(page.getByTestId('new-token')).toBeVisible();
+    await page.getByRole('button', { name: 'I have saved it' }).click();
+    await page.reload();
+    await expect(page.getByTestId('token-notice')).toHaveCount(0);
+    await expect(page.getByTestId('token-preview')).toBeVisible();
+  });
+
+  test('allows plain ws:// per participant, off by default, and records it', async ({ page }) => {
+    await freshApp(page);
+    await loginAsAdmin(page);
+    await page.goto('/admin/participants');
+    const alice = page.getByLabel('Allow ws:// for Alice');
+    await expect(alice).not.toBeChecked();
+    await alice.click();
+    await expect(alice).toBeChecked();
+    await expect(page.getByLabel('Allow ws:// for Bruno')).not.toBeChecked();
+    await page.reload();
+    await expect(page.getByLabel('Allow ws:// for Alice')).toBeChecked();
+    await page.getByLabel('Allow ws:// for Alice').click();
+    await expect(page.getByLabel('Allow ws:// for Alice')).not.toBeChecked();
+    await page.goto('/admin/audit');
+    await expect(page.getByText('insecure_allowed')).toBeVisible();
+    await expect(page.getByText('insecure_forbidden')).toBeVisible();
   });
 
   test('creates rulesets with validation; a new ruleset does not become the default', async ({ page }) => {

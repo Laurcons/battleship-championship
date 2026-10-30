@@ -40,6 +40,7 @@ export function createSeedState(now: number): MockState {
     tokenCreatedAt: now - (daysAgo - 0.1) * DAY,
     tokenReplaced: false,
     tokenNotice: null,
+    allowInsecure: false,
     createdAt: now - daysAgo * DAY,
   });
   state.participants.push(person('p_alice', 'Alice', 6), person('p_bruno', 'Bruno', 6), person('p_chen', 'Chen', 5), person('p_dana', 'Dana', 5));

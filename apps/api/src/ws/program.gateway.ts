@@ -32,10 +32,13 @@ class WsLink implements SeatLink {
   lastPong = 0;
   lastPingAt = 0;
   abuse: number[] = [];
+  participantId: string | null = null;
 
   constructor(
     readonly socket: WebSocket,
     readonly ip: string,
+    /** Whether the connection reached the platform over TLS (wss://). */
+    readonly secure: boolean,
   ) {}
 
   send(text: string): void {
@@ -90,9 +93,15 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
         socket.destroy();
         return;
       }
-      wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, ip));
+      const secure = this.isSecure(req);
+      wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, ip, secure));
     };
     this.server.on('upgrade', this.onUpgrade);
+    this.accounts.onInsecureRevoked((participantId) => {
+      for (const link of this.links) {
+        if (link.participantId === participantId && !link.secure) link.close(CLOSE.CLOSED_BY_PLATFORM, 'Insecure connections are no longer allowed for this account.');
+      }
+    });
   }
 
   /** Runs before the HTTP server stops accepting: it would otherwise wait for these sockets forever. */
@@ -123,10 +132,27 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     return req.socket.remoteAddress ?? 'unknown';
   }
 
+  /**
+   * Whether the program connected with TLS. The platform itself speaks plain HTTP behind a reverse
+   * proxy, so this trusts the proxy's X-Forwarded-Proto (same hop counting as the client address).
+   * Without a trusted proxy a connection can only be secure if this server terminates TLS itself.
+   */
+  private isSecure(req: IncomingMessage): boolean {
+    if ((req.socket as { encrypted?: boolean }).encrypted) return true;
+    const hops = this.config.trustProxyHops;
+    if (hops <= 0) return false;
+    const protos = String(req.headers['x-forwarded-proto'] ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const proto = protos[protos.length - hops] ?? protos[0];
+    return proto === 'https' || proto === 'wss';
+  }
+
   // --- connection lifecycle --------------------------------------------------------------------
 
-  private accept(socket: WebSocket, ip: string): void {
-    const link = new WsLink(socket, ip);
+  private accept(socket: WebSocket, ip: string, secure: boolean): void {
+    const link = new WsLink(socket, ip, secure);
     this.links.add(link);
     this.perIp.set(ip, (this.perIp.get(ip) ?? 0) + 1);
     link.lastPong = this.clock.now();
@@ -239,6 +265,15 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     });
     if (owned.length === 0 || this.lobbies.statusOf(lobby) === 'expired') return deny();
 
+    if (!link.secure && !participant.allowInsecure) {
+      return this.fatal(
+        link,
+        'tls_required',
+        'This account may only connect over a secure WebSocket (wss://). Use wss://, or ask the admin to allow ws:// for your account. Your token was sent unencrypted.',
+        CLOSE.TLS_REQUIRED,
+      );
+    }
+
     if (!hello.accepts.includes(lobby.row.rulesetId)) {
       return this.fatal(link, 'ruleset_mismatch', `This lobby plays the ruleset "${lobby.row.rulesetId}", which is not in your "accepts" list.`, CLOSE.RULESET_MISMATCH);
     }
@@ -257,6 +292,7 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     link.helloTimer = null;
     link.seat = seat;
     link.lobby = lobby;
+    link.participantId = participant.id;
     const program = hello.program ? { name: hello.program.name, version: hello.program.version ?? '' } : null;
     rt.attach(seat, link, program, redactHello(text, hello.token));
   }

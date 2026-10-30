@@ -61,6 +61,7 @@ export class PrismaStore implements Store {
       tokenCreatedAt: num(r.tokenCreatedAt),
       tokenReplaced: r.tokenReplaced,
       tokenNoticeAt: num(r.tokenNoticeAt),
+      allowInsecure: r.allowInsecure,
       createdAt: Number(r.createdAt),
     }));
   }

@@ -89,7 +89,12 @@ export interface ApiClient {
     listParticipants(): Promise<AdminParticipant[]>;
     createParticipant(name: string): Promise<AdminParticipant>;
     renameParticipant(id: string, name: string): Promise<AdminParticipant>;
+    /** Also deletes every lobby in which the participant has a seat, whoever created it. */
     deleteParticipant(id: string): Promise<void>;
+    /** Takes the participant's token away and disconnects their programs; they create a new one themselves. */
+    resetParticipantToken(id: string): Promise<AdminParticipant>;
+    /** Allows or forbids plain ws:// connections for the participant's programs. */
+    setParticipantInsecure(id: string, allowed: boolean): Promise<AdminParticipant>;
     createRuleset(ruleset: Ruleset): Promise<RulesetInfo>;
     setRulesetEnabled(id: string, enabled: boolean): Promise<RulesetInfo>;
     /** Makes an enabled ruleset the one preselected for new lobbies. */

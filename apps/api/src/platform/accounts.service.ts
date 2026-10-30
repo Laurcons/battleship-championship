@@ -5,6 +5,9 @@ import { STORE, type ParticipantRow, type Store } from '../store/store.js';
 import { AuditService } from './audit.service.js';
 import { CLOCK, Mutex, newId, randomBytesUint8, sha256Hex, type Clock } from './util.js';
 
+/** Why a token stopped working: its owner replaced it, or an admin reset it. */
+export type TokenChange = 'replaced' | 'reset';
+
 const NAME_PATTERN = /^[\p{L}\p{N} ._-]{1,24}$/u;
 
 /** Participants and their program tokens. */
@@ -13,8 +16,10 @@ export class AccountsService {
   private byId = new Map<string, ParticipantRow>();
   private byTokenHash = new Map<string, string>();
   private readonly lock = new Mutex();
-  /** Listeners told when a participant's token was replaced, so their connections can be dropped. */
-  private tokenReplacedListeners: ((participantId: string) => void)[] = [];
+  /** Listeners told when a participant's token was replaced or reset, so their connections can be dropped. */
+  private tokenReplacedListeners: ((participantId: string, why: TokenChange) => void)[] = [];
+  /** Told when a participant is no longer allowed to connect over plain `ws://`. */
+  private insecureRevokedListeners: ((participantId: string) => void)[] = [];
   /** Set by the lobby service: in how many lobbies a participant has a seat. */
   lobbyCounter: (participantId: string) => number = () => 0;
 
@@ -34,8 +39,12 @@ export class AccountsService {
     if (row.tokenHash) this.byTokenHash.set(row.tokenHash, row.id);
   }
 
-  onTokenReplaced(listener: (participantId: string) => void): void {
+  onTokenReplaced(listener: (participantId: string, why: TokenChange) => void): void {
     this.tokenReplacedListeners.push(listener);
+  }
+
+  onInsecureRevoked(listener: (participantId: string) => void): void {
+    this.insecureRevokedListeners.push(listener);
   }
 
   get(id: string): ParticipantRow | undefined {
@@ -90,7 +99,7 @@ export class AccountsService {
       if (!p.tokenHash) throw new ApiError('conflict', "You don't have a token yet. Create one first.");
       const token = await this.issue(p, true);
       await this.audit.record(p.name, 'token_replaced');
-      this.tokenReplacedListeners.forEach((l) => l(p.id));
+      this.tokenReplacedListeners.forEach((l) => l(p.id, 'replaced'));
       return { token };
     });
   }
@@ -101,7 +110,7 @@ export class AccountsService {
       const p = this.require(participantId);
       const token = await this.issue(p, true, true);
       await this.audit.record('(another session)', 'token_replaced', p.name);
-      this.tokenReplacedListeners.forEach((l) => l(p.id));
+      this.tokenReplacedListeners.forEach((l) => l(p.id, 'replaced'));
       return { token };
     });
   }
@@ -135,7 +144,14 @@ export class AccountsService {
   // --- admin -----------------------------------------------------------------------------------
 
   private adminView(p: ParticipantRow): AdminParticipant {
-    return { id: p.id, name: p.name, createdAt: p.createdAt, tokenCreatedAt: p.tokenCreatedAt, lobbyCount: this.lobbyCounter(p.id) };
+    return {
+      id: p.id,
+      name: p.name,
+      createdAt: p.createdAt,
+      tokenCreatedAt: p.tokenCreatedAt,
+      lobbyCount: this.lobbyCounter(p.id),
+      allowInsecure: p.allowInsecure,
+    };
   }
 
   adminList(): AdminParticipant[] {
@@ -165,6 +181,7 @@ export class AccountsService {
         tokenCreatedAt: null,
         tokenReplaced: false,
         tokenNoticeAt: null,
+        allowInsecure: false,
         createdAt: this.clock.now(),
       };
       await this.store.saveParticipant(row);
@@ -182,6 +199,46 @@ export class AccountsService {
       await this.store.saveParticipant(next);
       this.index(next);
       await this.audit.record(actor, 'participant_renamed', p.name, `now ${next.name}`);
+      return this.adminView(next);
+    });
+  }
+
+  /** Allows or forbids plain `ws://` for a participant's programs. Forbidding drops their insecure connections. */
+  setAllowInsecure(actor: string, id: string, allowed: boolean): Promise<AdminParticipant> {
+    return this.lock.run(async () => {
+      const p = this.byId.get(id);
+      if (!p) throw new ApiError('not_found', 'Participant not found.');
+      if (p.allowInsecure === allowed) return this.adminView(p);
+      const next = { ...p, allowInsecure: allowed };
+      await this.store.saveParticipant(next);
+      this.index(next);
+      await this.audit.record(actor, allowed ? 'insecure_allowed' : 'insecure_forbidden', p.name);
+      if (!allowed) this.insecureRevokedListeners.forEach((l) => l(p.id));
+      return this.adminView(next);
+    });
+  }
+
+  /**
+   * Takes a participant's token away: they are back to "no token yet", their programs are disconnected,
+   * and they see a notice on the Account page. They create a new token themselves; the admin never sees one.
+   */
+  resetToken(actor: string, id: string): Promise<AdminParticipant> {
+    return this.lock.run(async () => {
+      const p = this.byId.get(id);
+      if (!p) throw new ApiError('not_found', 'Participant not found.');
+      if (!p.tokenHash) throw new ApiError('conflict', `${p.name} has no token to reset.`);
+      const next: ParticipantRow = {
+        ...p,
+        tokenHash: null,
+        tokenPreview: null,
+        tokenCreatedAt: null,
+        tokenReplaced: false,
+        tokenNoticeAt: this.clock.now(),
+      };
+      await this.store.saveParticipant(next);
+      this.index(next);
+      await this.audit.record(actor, 'token_reset', p.name);
+      this.tokenReplacedListeners.forEach((l) => l(p.id, 'reset'));
       return this.adminView(next);
     });
   }
