@@ -69,8 +69,10 @@ function run(bin: string, env: Record<string, string>): Running {
   child.stderr?.setEncoding('utf8').on('data', (d) => (output += d));
   return {
     out: () => output,
+    // The probe writes byte by byte, so the last line may be half written: only complete lines are read.
     probes: () =>
       output
+        .slice(0, output.lastIndexOf('\n') + 1)
         .split('\n')
         .filter((l) => l.startsWith('PROBE '))
         .map((l) => JSON.parse(l.slice(6))),
@@ -201,7 +203,7 @@ describe.skipIf(!haveCompiler)('C++ shim against a scripted platform', () => {
     await fake.send(turn({ you, enemy, last_shot: { x: 3, y: 4, result: 'sunk', len: 2 }, incoming: [{ x: 1, y: 1, result: 'miss' }, { x: 8, y: 6, result: 'hit' }, { x: 9, y: 6, result: 'sunk', len: 2 }], enemy_remaining: [4, 3], error: { code: 'already_fired', message: 'm' }, strikes: 2 }));
     const frames = await fake.received(2);
     expect(frames[1]).toEqual({ type: 'fire', rid: 7, x: 5, y: 0 }); // the probe fires at the first free cell
-    const t = p.probes().find((e) => e.event === 'turn');
+    const t = await eventually(() => p.probes().find((e) => e.event === 'turn'), 8000, 'turn probe');
     expect(t).toMatchObject({
       you, enemy, last_x: 3, last_y: 4, last_result: 's', last_len: 2, in_n: 3, in_x: [1, 8, 9], in_y: [1, 6, 6], in_r: 'mhs',
       rem_n: 2, rem: [4, 3], error: 'already_fired', strikes: 2, deadline: 9000,
@@ -231,7 +233,7 @@ describe.skipIf(!haveCompiler)('C++ shim against a scripted platform', () => {
     const board = Array.from({ length: 20 }, (_, y) => 'ox.S#'.repeat(5).slice(y % 5, (y % 5) + 20));
     await fake.send(turn({ you: board, enemy: board, incoming: shots }));
     await fake.received(2);
-    const t = p.probes().find((e) => e.event === 'turn');
+    const t = await eventually(() => p.probes().find((e) => e.event === 'turn'), 8000, 'turn probe');
     expect(t.w).toBe(20);
     expect(t.you).toEqual(board);
     expect(t.enemy).toEqual(board);
