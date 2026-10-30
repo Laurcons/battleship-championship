@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { AdminApi, createLobby, createToken, loginAsAdmin, personPage, Program, startBattery, uid } from './helpers';
+import { AdminApi, createLobby, createToken, loginAsAdmin, personPage, Program, rowAction, rowActionEnabled, startBattery, uid } from './helpers';
 
 test.describe('real stack: admin', () => {
   test('creates participants and rulesets, who then show up for everyone', async ({ browser }) => {
@@ -39,10 +39,10 @@ test.describe('real stack: admin', () => {
     await loginAsAdmin(adminPage);
     await adminPage.goto('/admin/participants');
     const row = adminPage.getByTestId('participants-table').getByRole('row').filter({ hasText: sam });
-    await adminPage.getByRole('button', { name: `Reset token of ${sam}` }).click();
+    await rowAction(adminPage, sam, 'Reset token…');
     await adminPage.getByRole('dialog').getByRole('button', { name: 'Reset token' }).click();
     await expect(row).toContainText('Not created yet');
-    await expect(adminPage.getByRole('button', { name: `Reset token of ${sam}` })).toBeDisabled();
+    expect(await rowActionEnabled(adminPage, sam, 'Reset token…')).toBe(false);
 
     expect(await a.waitForClose()).toBe(4000);
     expect(b.closeCode).toBeNull(); // the opponent is not affected
@@ -85,7 +85,7 @@ test.describe('real stack: admin', () => {
     const adminPage = await (await browser.newContext()).newPage();
     await loginAsAdmin(adminPage);
     await adminPage.goto('/admin/participants');
-    await adminPage.getByRole('button', { name: `Delete ${vic}` }).click();
+    await rowAction(adminPage, vic, 'Delete…');
     const dialog = adminPage.getByRole('dialog');
     await expect(dialog.getByTestId('doomed-count')).toHaveText('2');
     await expect(dialog.getByTestId('doomed-lobbies')).toContainText(lobbyUv);

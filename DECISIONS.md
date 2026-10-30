@@ -188,6 +188,10 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 - Strict input validation, size limits and rate limits on all inbound messages.
 - Program-supplied strings are rendered as text only and a strict CSP is set.
 - Resource caps on lobbies, retention and connections.
+- **Token use is monitored** (admin only). Every accepted program connection is kept for 30 days with its address, `ws`/`wss`, program name and version, lobby and how it ended, and so is every valid token tried on a lobby that is not the participant's. The audit log gets a `program_connected` entry only when the address, mode or program changes, plus `program_replaced` and `program_denied` for the strong events. Participants do not see this.
+  - **Signals** are computed from the history when asked, never stored: the same token on two addresses at once (or a live connection taken over by another address) and a valid token on a foreign lobby are *high*; a new address and three or more addresses in a week are *notices*; plain `ws://` (once per address) and an address shared by several participants are *information*. Friends share networks and phones change them, so signals are for a human to judge, never grounds for automatic blocking.
+  - **Review** is one timestamp per participant: signals raised before it count as reviewed, newer ones show up again. Resetting a token counts as the review.
+  - The participants list has a "⋯" menu per row (Activity, Rename, Reset token, Delete) and a badge for unreviewed signals; the Token monitor page lists every signal at a glance, and the Admin menu shows how many need attention. Signals depend on the real client address: the monitor warns when every address looks like the proxy (`TRUST_PROXY_HOPS`).
 - No secrets or participant names in the repo; all config through environment variables.
 - Dependencies with compatible licenses. The licence for the eventual open-sourcing is chosen later.
 - Protocol spec, examples and tooling in their own packages. Clean git history.

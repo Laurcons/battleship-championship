@@ -13,6 +13,8 @@ export interface ParticipantRow {
   tokenNoticeAt: number | null;
   /** Admin policy: may this participant's programs connect over plain `ws://`? Off by default. */
   allowInsecure: boolean;
+  /** Connection signals raised before this moment count as reviewed (0 = never reviewed). */
+  activityReviewedAt: number;
   createdAt: number;
 }
 
@@ -80,6 +82,23 @@ export interface AuditRow {
   detail: string | null;
 }
 
+/** One accepted program connection, or one denied attempt. Same shape as `ConnectionFact` in the API contract. */
+export interface ConnectionRow {
+  id: string;
+  participantId: string;
+  kind: 'connected' | 'denied';
+  at: number;
+  endedAt: number | null;
+  endReason: string | null;
+  ip: string;
+  secure: boolean;
+  programName: string | null;
+  programVersion: string | null;
+  lobbyId: string;
+  seat: number | null;
+  takeoverIp: string | null;
+}
+
 export type WebSessionRole = 'gate' | 'participant' | 'admin';
 
 export interface WebSessionRow {
@@ -129,6 +148,15 @@ export interface Store {
   appendAudit(row: Omit<AuditRow, 'id'>): Promise<void>;
   /** Newest first. */
   listAudit(limit: number): Promise<AuditRow[]>;
+
+  addConnection(row: ConnectionRow): Promise<void>;
+  /** Closes one connection. Does nothing if it is already closed or unknown. */
+  endConnection(id: string, endedAt: number, reason: string, takeoverIp: string | null): Promise<void>;
+  /** Closes every connection still marked open (after a restart, nothing can be open). */
+  endOpenConnections(endedAt: number, reason: string): Promise<void>;
+  /** Oldest first. */
+  listConnections(since: number): Promise<ConnectionRow[]>;
+  pruneConnections(before: number): Promise<void>;
 
   saveSession(row: WebSessionRow): Promise<void>;
   getSession(idHash: string): Promise<WebSessionRow | null>;

@@ -34,6 +34,7 @@ export default defineConfig({
       MOVE_TIMEOUT_MS: '3000',
       PLACE_TIMEOUT_MS: '3000',
       GRACE_MS: '4000',
+      TRUST_PROXY_HOPS: '1', // programs report their address through X-Forwarded-For, as behind a real proxy
       LOGIN_ATTEMPTS: '1000',
       API_RATE_LIMIT: '1000000', // every test comes from one address
     },

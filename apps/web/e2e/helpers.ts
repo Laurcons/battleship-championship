@@ -101,3 +101,17 @@ export async function logout(page: Page) {
   await page.getByRole('button', { name: 'Log out' }).click();
   await expect(page).toHaveURL(/\/(admin\/)?login$/);
 }
+
+/** Opens the "⋯" menu of a participant's row and picks an item. */
+export async function rowAction(page: Page, name: string, item: 'Activity…' | 'Rename…' | 'Reset token…' | 'Delete…') {
+  await page.getByRole('button', { name: `Actions for ${name}` }).click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
+
+/** Whether an item of a participant's "⋯" menu is available. Leaves the menu closed. */
+export async function rowActionEnabled(page: Page, name: string, item: 'Activity…' | 'Rename…' | 'Reset token…' | 'Delete…'): Promise<boolean> {
+  await page.getByRole('button', { name: `Actions for ${name}` }).click();
+  const disabled = await page.getByRole('menuitem', { name: item }).isDisabled();
+  await page.keyboard.press('Escape');
+  return !disabled;
+}

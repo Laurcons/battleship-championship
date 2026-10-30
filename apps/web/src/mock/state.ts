@@ -1,6 +1,6 @@
 import type { BotKind } from '@bsc/bots';
 import type { GameEvent, GameSummary, Heatmap, Ruleset, Seat } from '@bsc/engine';
-import type { AuditEntry, ConnectionState, Frame, GameStatus, SeatOwner } from '../api/types';
+import type { AuditEntry, ConnectionFact, ConnectionState, Frame, GameStatus, SeatOwner } from '../api/types';
 import type { EndReason } from '@bsc/engine';
 
 export type Fault = 'none' | 'invalid_moves' | 'repeat_shots' | 'bad_shape' | 'timeout' | 'crash';
@@ -20,6 +20,8 @@ export interface ParticipantRec {
   tokenReplaced: boolean;
   tokenNotice: { at: number } | null;
   allowInsecure: boolean;
+  /** Signals raised before this moment count as reviewed. Absent in state saved by earlier versions: 0. */
+  activityReviewedAt?: number;
   createdAt: number;
 }
 
@@ -95,6 +97,8 @@ export interface MockState {
   rulesets: RulesetRec[];
   lobbies: LobbyRec[];
   audit: AuditEntry[];
+  /** Where tokens were used from. Absent in state saved by earlier versions. */
+  connections?: ConnectionFact[];
   counter: number;
 }
 

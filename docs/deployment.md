@@ -37,6 +37,12 @@ The container applies database migrations on start (`prisma migrate deploy`), th
 
 A restart voids the game in progress and drops every program connection. Batteries keep their results and wait for the programs to reconnect (the resume window applies), so a short deploy between games is invisible apart from a pause. Programs should reconnect on their own: see `docs/program-rules.md`.
 
+## Watching how tokens are used
+
+The admin pages *Participants* and *Token monitor* show where each token has been used from and what is worth a look (the same token on two addresses at once, a valid token on somebody else's lobby, a new address, and so on). This relies on the platform seeing the **real client address**, so `TRUST_PROXY_HOPS` must be right: if every connection appears to come from the proxy, the Token monitor says so at the top and the signals mean nothing.
+
+Connection history is kept for 30 days and then deleted; it contains participants' IP addresses, so keep that in mind if the platform is ever opened to people outside the group. Signals are hints for a person to judge, not proof: friends share networks and phones change them. A participant whose token you no longer trust can have it reset from the same pages; they create a new one themselves.
+
 ## Backups
 
 Everything worth keeping is in the database: participants, rulesets, lobbies, series, games with their event logs, and the audit log. Back it up with the usual MariaDB tools. The raw frame logs (the debugging view) are in memory only and are lost on restart.

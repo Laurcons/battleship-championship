@@ -1,8 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Container, Nav, Navbar, NavDropdown } from 'react-bootstrap';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useApi } from '../api/context';
 import type { Session } from '../api/types';
+import { keys } from '../hooks/queries';
 
 /** The bar shown on public pages (the documentation) to someone who has not logged in. */
 export function PublicNavbar() {
@@ -45,6 +46,14 @@ export function AppNavbar({ session }: { session: Session }) {
     navigate(session.role === 'admin' ? '/admin/login' : '/login');
   };
   const link = ({ isActive }: { isActive: boolean }) => `nav-link${isActive ? ' active' : ''}`;
+  // Admins see at a glance whether any token activity needs attention.
+  const monitor = useQuery({
+    queryKey: keys.admin.monitor,
+    queryFn: () => api.admin.getTokenMonitor(),
+    refetchInterval: 30_000,
+    enabled: session.role === 'admin',
+  });
+  const attention = monitor.data?.summary.needsAttention ?? 0;
   return (
     <Navbar expand="md" variant="dark" bg="primary" className="mb-4" aria-label="Main navigation">
       <Container>
@@ -67,7 +76,20 @@ export function AppNavbar({ session }: { session: Session }) {
               Docs
             </NavLink>
             {session.role === 'admin' && (
-              <NavDropdown title="Admin" id="admin-menu">
+              <NavDropdown
+                title={
+                  <>
+                    Admin
+                    {attention > 0 && (
+                      <span className="badge rounded-pill bg-danger ms-1" data-testid="admin-attention">
+                        {attention}
+                        <span className="visually-hidden"> token signals need attention</span>
+                      </span>
+                    )}
+                  </>
+                }
+                id="admin-menu"
+              >
                 <NavDropdown.Item as={NavLink} to="/admin/participants">
                   Participants
                 </NavDropdown.Item>
@@ -76,6 +98,10 @@ export function AppNavbar({ session }: { session: Session }) {
                 </NavDropdown.Item>
                 <NavDropdown.Item as={NavLink} to="/admin/settings">
                   Settings
+                </NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/admin/tokens">
+                  Token monitor
+                  {attention > 0 && <span className="badge rounded-pill bg-danger ms-2">{attention}</span>}
                 </NavDropdown.Item>
                 <NavDropdown.Item as={NavLink} to="/admin/audit">
                   Audit log

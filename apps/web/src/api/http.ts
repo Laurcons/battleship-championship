@@ -4,12 +4,14 @@ import {
   type ApiClient,
   type ApiErrorCode,
   type AuditEntry,
+  type ConnectionRecord,
   type Frame,
   type GameDetail,
   type GameListItem,
   type LiveUpdate,
   type LobbySummary,
   type MyToken,
+  type ParticipantActivity,
   type ParticipantRef,
   type PlatformInfo,
   type PlatformSettings,
@@ -17,6 +19,7 @@ import {
   type SeriesInfo,
   type SeriesReport,
   type Session,
+  type TokenMonitor,
 } from '@bsc/api-contract';
 
 const CODES: readonly ApiErrorCode[] = [
@@ -116,6 +119,10 @@ export function createHttpApiClient(): ApiClient {
       createParticipant: (name) => post<AdminParticipant>('/api/admin/participants', { name }),
       renameParticipant: (id, name) => request<AdminParticipant>('PATCH', `/api/admin/participants/${enc(id)}`, { name }),
       deleteParticipant: (id) => request<void>('DELETE', `/api/admin/participants/${enc(id)}`),
+      getTokenMonitor: () => get<TokenMonitor>('/api/admin/token-activity'),
+      listRecentConnections: () => get<ConnectionRecord[]>('/api/admin/token-activity/connections'),
+      getParticipantActivity: (id) => get<ParticipantActivity>(`/api/admin/participants/${enc(id)}/activity`),
+      reviewParticipantActivity: (id) => post<AdminParticipant>(`/api/admin/participants/${enc(id)}/activity/review`),
       resetParticipantToken: (id) => post<AdminParticipant>(`/api/admin/participants/${enc(id)}/token/reset`),
       setParticipantInsecure: (id, allowInsecure) => request<AdminParticipant>('PATCH', `/api/admin/participants/${enc(id)}`, { allowInsecure }),
       createRuleset: (ruleset) => post<RulesetInfo>('/api/admin/rulesets', ruleset),

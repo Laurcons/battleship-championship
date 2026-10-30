@@ -619,6 +619,104 @@ describe('public documentation', () => {
   });
 });
 
+describe('token activity (mock)', () => {
+  const activity = (id: string) => {
+    admin();
+    return server.adminGetParticipantActivity(id);
+  };
+  const kindsOf = (id: string) => activity(id).signals.filter((x) => !x.reviewed).map((x) => x.kind).sort();
+
+  it('starts with things worth a look, spread over participants', () => {
+    admin();
+    const monitor = server.adminGetTokenMonitor();
+    expect(monitor.summary.needsAttention).toBe(2); // Bruno's taken-over connection, Dana's token on a lobby that is not hers
+    expect(kindsOf('p_bruno')).toEqual(['new_address', 'taken_over']);
+    expect(kindsOf('p_dana')).toEqual(['foreign_lobby', 'new_address', 'shared_address']);
+    expect(kindsOf('p_chen')).toEqual(['plain_ws', 'shared_address']);
+    expect(kindsOf('p_alice')).toEqual(['new_address']);
+    expect(monitor.proxyWarning).toBeNull();
+    expect(server.adminListParticipants().find((p) => p.name === 'Bruno')?.activity.unreviewed).toEqual({ high: 1, notice: 1, info: 0 });
+  });
+
+  it('records a connection with its address, and closes it when the program leaves', () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1);
+    let a = activity('p_alice');
+    expect(a.connections[0]).toMatchObject({ lobbyId: lobby.id, seat: 1, endedAt: null, secure: true });
+    expect(a.connections[0]?.ip).toBe(a.addresses[0]?.ip);
+    server.disconnectProgram(lobby.id, 1);
+    a = activity('p_alice');
+    expect(a.connections[0]).toMatchObject({ endReason: 'Connection closed by the program.' });
+    expect(a.connections[0]?.endedAt).not.toBeNull();
+  });
+
+  it('flags another address taking over a live connection, but not the same address reconnecting', () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1);
+    server.connectProgram(lobby.id, 1); // the same address again
+    expect(kindsOf('p_alice')).not.toContain('taken_over');
+    server.connectProgram(lobby.id, 1, undefined, 'other');
+    expect(kindsOf('p_alice')).toContain('taken_over');
+    expect(activity('p_alice').connections.find((c) => c.takeoverIp)).toMatchObject({ endReason: 'Replaced by a newer connection.' });
+  });
+
+  it('records a valid token tried on a lobby that is not theirs', () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.simulateDeniedAttempt('p_chen', lobby.id);
+    const chen = activity('p_chen');
+    expect(chen.denied[0]).toMatchObject({ lobbyId: lobby.id, kind: 'denied' });
+    expect(chen.signals.some((x) => x.kind === 'foreign_lobby' && x.message.includes(lobby.id))).toBe(true);
+  });
+
+  it('marks a participant reviewed, and new signals appear again afterwards', async () => {
+    admin();
+    const reviewed = server.adminReviewActivity('p_bruno');
+    expect(reviewed.activity.unreviewed).toEqual({ high: 0, notice: 0, info: 0 });
+    expect(kindsOf('p_bruno')).toEqual([]);
+    expect(activity('p_bruno').signals.every((x) => x.reviewed)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 5)); // a review covers everything up to its own millisecond
+    bruno();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_alice' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1, undefined, 'other');
+    expect(kindsOf('p_bruno')).toEqual(['many_addresses', 'new_address']); // a third address in a week counts too
+  });
+
+  it('counts a token reset as the review, and ends open connections when the lobby or the platform goes', () => {
+    alice();
+    const lobby = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_bruno' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(lobby.id, 1, undefined, 'other');
+    expect(kindsOf('p_alice').length).toBeGreaterThan(0);
+    admin();
+    server.adminResetParticipantToken('p_alice');
+    expect(kindsOf('p_alice')).toEqual([]);
+    expect(activity('p_alice').connections.every((c) => c.endedAt !== null)).toBe(true); // the reset dropped it
+
+    bruno();
+    const second = server.createLobby({ opponent: { kind: 'participant', participantId: 'p_chen' }, rulesetId: 'classic-10x10' });
+    server.connectProgram(second.id, 1);
+    server.deleteLobby(second.id);
+    expect(activity('p_bruno').connections.find((c) => c.lobbyId === second.id)).toMatchObject({ endReason: 'The lobby was deleted.' });
+  });
+
+  it('keeps it admin-only and forgets a deleted participant', () => {
+    alice();
+    expect(code(() => server.adminGetTokenMonitor())).toBe('forbidden');
+    expect(code(() => server.adminListRecentConnections())).toBe('forbidden');
+    expect(code(() => server.adminGetParticipantActivity('p_bruno'))).toBe('forbidden');
+    expect(code(() => server.adminReviewActivity('p_bruno'))).toBe('forbidden');
+    server.logout();
+    expect(code(() => server.adminGetTokenMonitor())).toBe('unauthenticated');
+    admin();
+    expect(code(() => server.adminGetParticipantActivity('p_missing'))).toBe('not_found');
+    server.adminDeleteParticipant('p_dana');
+    expect(server.adminListRecentConnections().some((c) => c.participant.name === 'Dana')).toBe(false);
+    expect(server.adminGetTokenMonitor().signals.some((x) => x.participant.name === 'Dana')).toBe(false);
+  });
+});
+
 describe('admin: deleting participants and resetting tokens', () => {
   const lobbyIds = () => {
     admin();

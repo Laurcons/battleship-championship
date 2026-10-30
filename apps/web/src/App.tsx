@@ -14,6 +14,7 @@ import { AdminParticipantsPage } from './pages/admin/ParticipantsPage';
 import { AdminRulesetsPage } from './pages/admin/RulesetsPage';
 import { AdminSettingsPage } from './pages/admin/SettingsPage';
 import { AdminAuditPage } from './pages/admin/AuditPage';
+import { AdminTokenMonitorPage } from './pages/admin/TokenMonitorPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 function Shell() {
@@ -68,6 +69,7 @@ export function App() {
           <Route path="/admin/participants" element={<AdminParticipantsPage />} />
           <Route path="/admin/rulesets" element={<AdminRulesetsPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/tokens" element={<AdminTokenMonitorPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

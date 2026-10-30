@@ -113,6 +113,8 @@ export interface ProgramOptions {
   /** Return true to take over a turn (the default reply is then skipped). */
   onTurn?: (frame: any, send: (frame: object) => void) => boolean;
   program?: { name: string; version: string };
+  /** The address a reverse proxy would report for this program (the test server trusts one proxy hop). */
+  from?: string;
 }
 
 export class Program {
@@ -134,7 +136,7 @@ export class Program {
   }
 
   static async connect(options: ProgramOptions): Promise<Program> {
-    const ws = new WebSocket(`${BASE.replace('http', 'ws')}/program/v1`);
+    const ws = new WebSocket(`${BASE.replace('http', 'ws')}/program/v1`, { headers: options.from ? { 'x-forwarded-for': options.from } : {} });
     const program = new Program(ws, options);
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
@@ -187,4 +189,18 @@ export class Program {
   kill() {
     this.ws.terminate();
   }
+}
+
+/** Opens the "⋯" menu of a participant's row and picks an item. */
+export async function rowAction(page: Page, name: string, item: 'Activity…' | 'Rename…' | 'Reset token…' | 'Delete…') {
+  await page.getByRole('button', { name: `Actions for ${name}` }).click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
+
+/** Whether an item of a participant's "⋯" menu is available. Leaves the menu closed. */
+export async function rowActionEnabled(page: Page, name: string, item: 'Activity…' | 'Rename…' | 'Reset token…' | 'Delete…'): Promise<boolean> {
+  await page.getByRole('button', { name: `Actions for ${name}` }).click();
+  const disabled = await page.getByRole('menuitem', { name: item }).isDisabled();
+  await page.keyboard.press('Escape');
+  return !disabled;
 }

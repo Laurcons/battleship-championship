@@ -56,6 +56,10 @@ export function createMockApiClient(server: MockServer, latencyMs = 120): ApiCli
       createParticipant: (name) => call(() => server.adminCreateParticipant(name)),
       renameParticipant: (id, name) => call(() => server.adminRenameParticipant(id, name)),
       deleteParticipant: (id) => call(() => server.adminDeleteParticipant(id)),
+      getTokenMonitor: () => call(() => server.adminGetTokenMonitor()),
+      listRecentConnections: () => call(() => server.adminListRecentConnections()),
+      getParticipantActivity: (id) => call(() => server.adminGetParticipantActivity(id)),
+      reviewParticipantActivity: (id) => call(() => server.adminReviewActivity(id)),
       resetParticipantToken: (id) => call(() => server.adminResetParticipantToken(id)),
       setParticipantInsecure: (id, allowed) => call(() => server.adminSetParticipantInsecure(id, allowed)),
       createRuleset: (r) => call(() => server.adminCreateRuleset(r)),
@@ -73,7 +77,10 @@ export function createMockApiClient(server: MockServer, latencyMs = 120): ApiCli
 export interface MockControls {
   getSpeed(): Speed;
   setSpeed(speed: Speed): void;
-  connectProgram(lobbyId: string, seat: Seat, profile?: SimProfile): void;
+  /** `from: 'other'` connects from a second address of the same participant. */
+  connectProgram(lobbyId: string, seat: Seat, profile?: SimProfile, from?: 'home' | 'other'): void;
+  /** A valid token of someone who is not in the lobby is tried on it. */
+  simulateDeniedAttempt(participantId: string, lobbyId: string): void;
   disconnectProgram(lobbyId: string, seat: Seat): void;
   setProfile(lobbyId: string, seat: Seat, profile: SimProfile): void;
   simulateServerRestart(): void;
@@ -91,7 +98,8 @@ export function createMockControls(server: MockServer): MockControls {
   return {
     getSpeed: () => server.getSpeed(),
     setSpeed: (speed) => server.setSpeed(speed),
-    connectProgram: (id, seat, profile) => server.connectProgram(id, seat, profile),
+    connectProgram: (id, seat, profile, from) => server.connectProgram(id, seat, profile, from),
+    simulateDeniedAttempt: (participantId, lobbyId) => server.simulateDeniedAttempt(participantId, lobbyId),
     disconnectProgram: (id, seat) => server.disconnectProgram(id, seat),
     setProfile: (id, seat, profile) => server.setProfile(id, seat, profile),
     simulateServerRestart: () => server.simulateServerRestart(),

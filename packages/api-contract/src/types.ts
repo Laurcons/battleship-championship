@@ -158,7 +158,94 @@ export interface PlatformInfo {
   limits: { moveMs: number; placeMs: number; graceMs: number; maxStrikes: number; idleExpiryMs: number };
 }
 
+export type SignalSeverity = 'high' | 'notice' | 'info';
+
+export type SignalKind =
+  | 'concurrent_addresses'
+  | 'taken_over'
+  | 'foreign_lobby'
+  | 'new_address'
+  | 'many_addresses'
+  | 'plain_ws'
+  | 'shared_address';
+
+/** Something about how a token was used that an admin may want to look at. Computed from the connection history. */
+export interface ActivitySignal {
+  id: string;
+  kind: SignalKind;
+  severity: SignalSeverity;
+  participant: ParticipantRef;
+  /** When the event that raised it happened. A signal is unreviewed while this is later than the participant's review time. */
+  at: number;
+  message: string;
+  ips: string[];
+  /** The connections that are the evidence for it. */
+  connectionIds: string[];
+  reviewed: boolean;
+}
+
+/** One program connection (or one denied attempt) as the admin sees it. */
+export interface ConnectionRecord {
+  id: string;
+  participant: ParticipantRef;
+  kind: 'connected' | 'denied';
+  at: number;
+  /** Null while the connection is open. */
+  endedAt: number | null;
+  ip: string;
+  /** Whether it used TLS (wss://). */
+  secure: boolean;
+  program: { name: string; version: string } | null;
+  lobbyId: string;
+  seat: Seat | null;
+  endReason: string | null;
+  /** Set when a newer connection from this other address took this one over while it was active. */
+  takeoverIp: string | null;
+  /** Ids of the signals this connection is evidence for. */
+  flaggedBy: string[];
+}
+
+export interface ActivitySummary {
+  lastConnection: { at: number; ip: string; secure: boolean } | null;
+  /** Unreviewed signals by severity. */
+  unreviewed: { high: number; notice: number; info: number };
+}
+
+export interface AddressSummary {
+  ip: string;
+  firstSeen: number;
+  lastSeen: number;
+  connections: number;
+  modes: ('wss' | 'ws')[];
+  /** Other participants seen on this address in the last 7 days. */
+  alsoUsedBy: ParticipantRef[];
+}
+
+export interface ParticipantActivity {
+  participant: ParticipantRef;
+  tokenCreatedAt: number | null;
+  /** Signals raised before this moment count as reviewed. 0 if never reviewed. */
+  reviewedAt: number;
+  connections7d: number;
+  addresses7d: number;
+  lastConnection: ActivitySummary['lastConnection'];
+  signals: ActivitySignal[];
+  addresses: AddressSummary[];
+  /** Newest first. */
+  connections: ConnectionRecord[];
+  denied: ConnectionRecord[];
+}
+
+export interface TokenMonitor {
+  summary: { needsAttention: number; notices: number; infos: number; activeLast24h: number; participants: number };
+  /** Newest first, reviewed ones included. */
+  signals: ActivitySignal[];
+  /** Set when the addresses look like the platform's own proxy, which would make every signal meaningless. */
+  proxyWarning: string | null;
+}
+
 export interface AdminParticipant extends ParticipantRef {
+  activity: ActivitySummary;
   createdAt: number;
   /** When the participant created their token; null if they have none yet. */
   tokenCreatedAt: number | null;

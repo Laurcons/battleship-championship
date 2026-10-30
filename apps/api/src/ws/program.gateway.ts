@@ -16,6 +16,7 @@ import {
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { CONFIG, type Config } from '../config.js';
 import { AccountsService } from '../platform/accounts.service.js';
+import { ActivityService } from '../platform/activity.service.js';
 import { LobbiesService } from '../platform/lobbies.service.js';
 import type { Lobby } from '../platform/lobby.js';
 import { RuntimeService } from '../platform/runtime/runtime.service.js';
@@ -33,6 +34,10 @@ class WsLink implements SeatLink {
   lastPingAt = 0;
   abuse: number[] = [];
   participantId: string | null = null;
+  /** The activity-history row of this connection, once it has been accepted. */
+  connectionId: string | null = null;
+  /** Why the platform closed the connection, if it did. */
+  platformClose: { code: number; reason: string } | null = null;
 
   constructor(
     readonly socket: WebSocket,
@@ -46,6 +51,7 @@ class WsLink implements SeatLink {
   }
 
   close(code: number, reason: string): void {
+    this.platformClose ??= { code, reason };
     // Close reasons are limited to 123 bytes.
     if (this.socket.readyState === this.socket.OPEN || this.socket.readyState === this.socket.CONNECTING) this.socket.close(code, reason.slice(0, 120));
   }
@@ -71,6 +77,7 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     @Inject(CONFIG) private readonly config: Config,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AccountsService) private readonly accounts: AccountsService,
+    @Inject(ActivityService) private readonly activity: ActivityService,
     @Inject(LobbiesService) private readonly lobbies: LobbiesService,
     @Inject(RuntimeService) private readonly runtime: RuntimeService,
   ) {}
@@ -171,7 +178,7 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
       }
     });
     socket.on('message', (data, isBinary) => this.onMessage(link, data, isBinary));
-    socket.on('close', () => this.onClose(link));
+    socket.on('close', (code: number) => this.onClose(link, code));
     socket.on('error', () => undefined); // the close event follows
   }
 
@@ -182,9 +189,13 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     link.pingTimer = null;
   }
 
-  private onClose(link: WsLink): void {
+  private onClose(link: WsLink, code: number): void {
     this.stopTimers(link);
     if (!this.links.delete(link)) return;
+    if (link.connectionId) {
+      const peerClosed = code === 1000 || code === 1001 || code === 1005;
+      this.activity.ended(link.connectionId, link.platformClose?.reason ?? (peerClosed ? 'Closed by the program.' : 'Connection lost.'));
+    }
     const count = (this.perIp.get(link.ip) ?? 1) - 1;
     if (count <= 0) this.perIp.delete(link.ip);
     else this.perIp.set(link.ip, count);
@@ -197,6 +208,7 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     const now = this.clock.now();
     if (now - link.lastPong > this.config.limits.pongTimeoutMs) {
       // Dead peer: drop it now, so the seat's resume window starts.
+      link.platformClose ??= { code: 1006, reason: 'No answer to ping: connection lost.' };
       link.socket.terminate();
       return;
     }
@@ -263,7 +275,12 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
       const owner = lobby.row.seats[s - 1];
       return owner?.kind === 'participant' && owner.participantId === participant.id;
     });
-    if (owned.length === 0 || this.lobbies.statusOf(lobby) === 'expired') return deny();
+    if (owned.length === 0) {
+      // A valid token on a lobby that is not theirs: the program is told nothing more than for a wrong token, the admin is told.
+      this.activity.denied(participant, { ip: link.ip, secure: link.secure, lobbyId: lobby.id });
+      return deny();
+    }
+    if (this.lobbies.statusOf(lobby) === 'expired') return deny();
 
     if (!link.secure && !participant.allowInsecure) {
       return this.fatal(
@@ -294,6 +311,15 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
     link.lobby = lobby;
     link.participantId = participant.id;
     const program = hello.program ? { name: hello.program.name, version: hello.program.version ?? '' } : null;
+    const before = lobby.seats[seat - 1];
+    link.connectionId = this.activity.connected(participant, {
+      ip: link.ip,
+      secure: link.secure,
+      program,
+      lobbyId: lobby.id,
+      seat,
+      previousSeenAt: before?.connection === 'connected' ? before.lastSeenAt : null,
+    });
     rt.attach(seat, link, program, redactHello(text, hello.token));
   }
 }

@@ -9,8 +9,14 @@ import {
 } from '@bsc/engine';
 import {
   ApiError,
+  monitorOf,
+  participantActivityOf,
+  recentConnectionsOf,
+  summariesOf,
+  type ActivityInputs,
   type AdminParticipant,
   type AuditEntry,
+  type ConnectionRecord,
   type Frame,
   type GameDetail,
   type GameListItem,
@@ -19,6 +25,7 @@ import {
   type LobbySummary,
   type MyToken,
   type OpponentChoice,
+  type ParticipantActivity,
   type ParticipantRef,
   type PlatformInfo,
   type PlatformSettings,
@@ -27,11 +34,12 @@ import {
   type SeriesInfo,
   type SeriesReport,
   type Session,
+  type TokenMonitor,
   type ViewerMode,
 } from '../api/types';
 import { generateLobbyCode, toWireRuleset } from '@bsc/protocol';
 import { buildFrames } from './frames';
-import { newToken } from './util';
+import { homeAddress, newToken, otherAddress } from './util';
 import { LobbyRunner, type RunnerHost, type Speed } from './runner';
 import { createSeedState } from './seed';
 import {
@@ -104,6 +112,7 @@ export class MockServer implements RunnerHost {
     const settings = this.state.settings as unknown as Record<string, unknown>;
     if (settings.allowGodMode === undefined) settings.allowGodMode = true; // it was the admin's "godModeDefault"
     delete settings.godModeDefault;
+    this.state.connections ??= [];
   }
 
   /** State saved before the admin could choose a default: fall back to the newest enabled ruleset. */
@@ -611,6 +620,8 @@ export class MockServer implements RunnerHost {
     const runner = this.runners.get(id);
     runner?.stop();
     this.runners.delete(id);
+    this.endConnections(id, 1, 'The lobby was deleted.');
+    this.endConnections(id, 2, 'The lobby was deleted.');
     this.state.lobbies = this.state.lobbies.filter((l) => l.id !== id);
     this.subscribers.delete(id);
     this.audit(this.actorName(session), 'lobby_deleted', lobby.id);
@@ -754,8 +765,9 @@ export class MockServer implements RunnerHost {
 
   // -------------------------------------------------------------------- admin
 
-  private adminParticipant(p: ParticipantRec): AdminParticipant {
+  private adminParticipant(p: ParticipantRec, summaries = summariesOf(this.activityInputs())): AdminParticipant {
     return {
+      activity: summaries.get(p.id) ?? { lastConnection: null, unreviewed: { high: 0, notice: 0, info: 0 } },
       id: p.id,
       name: p.name,
       createdAt: p.createdAt,
@@ -767,7 +779,8 @@ export class MockServer implements RunnerHost {
 
   adminListParticipants(): AdminParticipant[] {
     this.requireAdmin();
-    return this.state.participants.map((p) => this.adminParticipant(p)).sort((a, b) => a.name.localeCompare(b.name));
+    const summaries = summariesOf(this.activityInputs());
+    return this.state.participants.map((p) => this.adminParticipant(p, summaries)).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private validateName(name: string, exceptId?: string): string {
@@ -832,10 +845,13 @@ export class MockServer implements RunnerHost {
       this.runners.get(lobby.id)?.stop();
       this.runners.delete(lobby.id);
       this.subscribers.delete(lobby.id);
+      this.endConnections(lobby.id, 1, 'The lobby was deleted.');
+      this.endConnections(lobby.id, 2, 'The lobby was deleted.');
       this.state.lobbies = this.state.lobbies.filter((l) => l.id !== lobby.id);
       this.audit(`admin:${admin.username}`, 'lobby_deleted', lobby.id, `with ${p.name}`);
     }
     this.state.participants = this.state.participants.filter((x) => x.id !== id);
+    this.state.connections = (this.state.connections ?? []).filter((f) => f.participantId !== id);
     this.audit(`admin:${admin.username}`, 'participant_deleted', p.name);
   }
 
@@ -848,9 +864,82 @@ export class MockServer implements RunnerHost {
     p.tokenCreatedAt = null;
     p.tokenReplaced = false;
     p.tokenNotice = { at: this.now() };
+    p.activityReviewedAt = this.now(); // the reset is the answer to whatever was flagged
     this.dropConnections(p.id, 'Token reset by an admin: connection closed (close code 4000).');
     this.audit(`admin:${admin.username}`, 'token_reset', p.name);
     return this.adminParticipant(p);
+  }
+
+  // --------------------------------------------------------- how tokens are being used
+
+  private activityInputs(): ActivityInputs {
+    const facts = (this.state.connections ?? []).filter((f) => this.participant(f.participantId)).sort((x, y) => x.at - y.at);
+    return {
+      facts,
+      now: this.now(),
+      nameOf: (id) => this.participant(id)?.name ?? '(deleted)',
+      reviewedAt: (id) => this.participant(id)?.activityReviewedAt ?? 0,
+    };
+  }
+
+  adminGetTokenMonitor(): TokenMonitor {
+    this.requireAdmin();
+    return monitorOf({ ...this.activityInputs(), participantCount: this.state.participants.length });
+  }
+
+  adminListRecentConnections(): ConnectionRecord[] {
+    this.requireAdmin();
+    return recentConnectionsOf(this.activityInputs());
+  }
+
+  adminGetParticipantActivity(id: string): ParticipantActivity {
+    this.requireAdmin();
+    const p = this.participant(id);
+    if (!p) throw new ApiError('not_found', 'Participant not found.');
+    return participantActivityOf({ ...this.activityInputs(), participantId: id, tokenCreatedAt: p.tokenCreatedAt });
+  }
+
+  adminReviewActivity(id: string): AdminParticipant {
+    const admin = this.requireAdmin();
+    const p = this.participant(id);
+    if (!p) throw new ApiError('not_found', 'Participant not found.');
+    p.activityReviewedAt = this.now();
+    this.audit(`admin:${admin.username}`, 'activity_reviewed', p.name);
+    return this.adminParticipant(p);
+  }
+
+  /** Mock only: a valid token of a participant who is not in the lobby is tried on it. */
+  simulateDeniedAttempt(participantId: string, lobbyId: string): void {
+    const p = this.participant(participantId);
+    if (!p) throw new ApiError('not_found', 'Participant not found.');
+    const now = this.now();
+    this.state.connections?.push({
+      id: this.nextId('c'),
+      participantId,
+      kind: 'denied',
+      at: now,
+      endedAt: now,
+      endReason: 'Refused: not their lobby.',
+      ip: homeAddress(participantId),
+      secure: true,
+      program: null,
+      lobbyId,
+      seat: null,
+      takeoverIp: null,
+    });
+    this.audit(p.name, 'program_denied', lobbyId, `${homeAddress(participantId)} · wss · token is valid but the lobby is not theirs`);
+    this.changed();
+  }
+
+  /** Closes the open history rows of a seat (the program left, or was dropped). */
+  private endConnections(lobbyId: string, seatNo: Seat, reason: string, takeoverIp: string | null = null): void {
+    const now = this.now();
+    for (const f of this.state.connections ?? []) {
+      if (f.endedAt !== null || f.kind !== 'connected' || f.lobbyId !== lobbyId || f.seat !== seatNo) continue;
+      f.endedAt = now;
+      f.endReason = reason;
+      f.takeoverIp = takeoverIp;
+    }
   }
 
   adminCreateRuleset(ruleset: Ruleset): RulesetInfo {
@@ -945,7 +1034,7 @@ export class MockServer implements RunnerHost {
   }
 
   /** Brings a simulated program online on a participant-owned seat. */
-  connectProgram(lobbyId: string, seatNo: Seat, profile?: SimProfile): void {
+  connectProgram(lobbyId: string, seatNo: Seat, profile?: SimProfile, from: 'home' | 'other' = 'home'): void {
     const lobby = this.state.lobbies.find((l) => l.id === lobbyId);
     const seat = lobby?.seats[seatNo - 1];
     if (!lobby || !seat || seat.owner.kind !== 'participant') throw new ApiError('not_found', 'No such seat.');
@@ -956,6 +1045,24 @@ export class MockServer implements RunnerHost {
     if (profile) seat.profile = profile;
     const now = this.now();
     const resumed = seat.connection === 'grace';
+    const ip = from === 'other' ? otherAddress(owner.id) : homeAddress(owner.id);
+    // A program that is already connected is replaced; another address taking over a live one is worth noting.
+    const takeover = seat.connection === 'connected' && (this.state.connections ?? []).some((f) => f.endedAt === null && f.lobbyId === lobbyId && f.seat === seatNo && f.ip !== ip) ? ip : null;
+    this.endConnections(lobbyId, seatNo, 'Replaced by a newer connection.', takeover);
+    this.state.connections?.push({
+      id: this.nextId('c'),
+      participantId: owner.id,
+      kind: 'connected',
+      at: now,
+      endedAt: null,
+      endReason: null,
+      ip,
+      secure: true,
+      program: { name: `sim-${seat.profile.brain}`, version: '0.1.0' },
+      lobbyId,
+      seat: seatNo,
+      takeoverIp: null,
+    });
     seat.connection = 'connected';
     seat.graceEndsAt = null;
     seat.latencyMs = 5 + Math.floor(Math.random() * 40);
@@ -1007,6 +1114,7 @@ export class MockServer implements RunnerHost {
 
   private disconnectSeat(lobby: LobbyRec, seat: SeatRec, note: string): void {
     const now = this.now();
+    this.endConnections(lobby.id, seat.seat, note);
     const running = this.runners.get(lobby.id)?.isRunning() ?? false;
     seat.connection = running ? 'grace' : 'disconnected';
     seat.graceEndsAt = running ? now + PLATFORM_CONSTANTS.graceMs : null;
@@ -1038,6 +1146,11 @@ export class MockServer implements RunnerHost {
 
   private recoverAfterRestart(announce: boolean): void {
     const now = this.now();
+    for (const f of this.state.connections ?? []) {
+      if (f.endedAt !== null) continue;
+      f.endedAt = now;
+      f.endReason = 'The platform restarted.';
+    }
     for (const lobby of this.state.lobbies) {
       const running = lobby.seriesList.at(-1)?.status === 'running';
       for (const seat of lobby.seats) {

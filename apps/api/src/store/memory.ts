@@ -1,6 +1,7 @@
 import type { GameSummary } from '@bsc/engine';
 import type {
   AuditRow,
+  ConnectionRow,
   GameMeta,
   GameRow,
   LobbyRow,
@@ -23,6 +24,7 @@ export class MemoryStore implements Store {
   private audit: AuditRow[] = [];
   private auditCounter = 0;
   private sessions = new Map<string, WebSessionRow>();
+  private connections = new Map<string, ConnectionRow>();
 
   async init(): Promise<void> {}
   async close(): Promise<void> {}
@@ -42,6 +44,7 @@ export class MemoryStore implements Store {
 
   async deleteParticipant(id: string): Promise<void> {
     this.participants.delete(id);
+    for (const [key, c] of this.connections) if (c.participantId === id) this.connections.delete(key);
   }
 
   async listRulesets(): Promise<RulesetRow[]> {
@@ -121,6 +124,28 @@ export class MemoryStore implements Store {
 
   async listAudit(limit: number): Promise<AuditRow[]> {
     return this.audit.slice(-limit).reverse().map(clone);
+  }
+
+  async addConnection(row: ConnectionRow): Promise<void> {
+    if (!this.participants.has(row.participantId)) throw new Error('foreign key: participant');
+    this.connections.set(row.id, clone(row));
+  }
+
+  async endConnection(id: string, endedAt: number, reason: string, takeoverIp: string | null): Promise<void> {
+    const c = this.connections.get(id);
+    if (c && c.endedAt === null) this.connections.set(id, { ...c, endedAt, endReason: reason, takeoverIp });
+  }
+
+  async endOpenConnections(endedAt: number, reason: string): Promise<void> {
+    for (const [id, c] of this.connections) if (c.endedAt === null) this.connections.set(id, { ...c, endedAt, endReason: reason });
+  }
+
+  async listConnections(since: number): Promise<ConnectionRow[]> {
+    return [...this.connections.values()].filter((c) => c.at >= since).sort((a, b) => a.at - b.at).map(clone);
+  }
+
+  async pruneConnections(before: number): Promise<void> {
+    for (const [id, c] of this.connections) if (c.at < before) this.connections.delete(id);
   }
 
   async saveSession(row: WebSessionRow): Promise<void> {

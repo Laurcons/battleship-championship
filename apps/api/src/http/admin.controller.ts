@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Patch, Post } from '@nestjs/common';
 import {
+  ApiError,
   participantNameSchema,
   participantPatchSchema,
   rulesetSchema,
@@ -7,12 +8,16 @@ import {
   updateSettingsSchema,
   type AdminParticipant,
   type AuditEntry,
+  type ConnectionRecord,
   type LobbySummary,
+  type ParticipantActivity,
   type PlatformSettings,
   type RulesetInfo,
+  type TokenMonitor,
 } from '@bsc/api-contract';
 import type { Ruleset } from '@bsc/engine';
-import { AccountsService } from '../platform/accounts.service.js';
+import { AccountsService, type AdminParticipantBase } from '../platform/accounts.service.js';
+import { ActivityService } from '../platform/activity.service.js';
 import { AuditService } from '../platform/audit.service.js';
 import { LobbiesService } from '../platform/lobbies.service.js';
 import { RulesetsService } from '../platform/rulesets.service.js';
@@ -27,21 +32,28 @@ const who = (a: Admin) => `admin:${a.username}`;
 export class AdminController {
   constructor(
     @Inject(AccountsService) private readonly accounts: AccountsService,
+    @Inject(ActivityService) private readonly activity: ActivityService,
     @Inject(RulesetsService) private readonly rulesets: RulesetsService,
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(LobbiesService) private readonly lobbies: LobbiesService,
   ) {}
 
+  /** Adds the connection activity to what the accounts know about a participant. */
+  private withActivity(p: AdminParticipantBase, summaries = this.activity.summaries()): AdminParticipant {
+    return { ...p, activity: summaries.get(p.id) ?? this.activity.emptySummary() };
+  }
+
   @Get('participants')
   participants(): AdminParticipant[] {
-    return this.accounts.adminList();
+    const summaries = this.activity.summaries();
+    return this.accounts.adminList().map((p) => this.withActivity(p, summaries));
   }
 
   @Post('participants')
   @HttpCode(201)
-  createParticipant(@CurrentAdmin() a: Admin, @Body(new ZodPipe(participantNameSchema)) body: { name: string }): Promise<AdminParticipant> {
-    return this.accounts.create(who(a), body.name);
+  async createParticipant(@CurrentAdmin() a: Admin, @Body(new ZodPipe(participantNameSchema)) body: { name: string }): Promise<AdminParticipant> {
+    return this.withActivity(await this.accounts.create(who(a), body.name));
   }
 
   @Patch('participants/:id')
@@ -50,10 +62,10 @@ export class AdminController {
     @Param('id') id: string,
     @Body(new ZodPipe(participantPatchSchema)) body: { name?: string; allowInsecure?: boolean },
   ): Promise<AdminParticipant> {
-    let result: AdminParticipant | undefined;
+    let result: AdminParticipantBase | undefined;
     if (body.name !== undefined) result = await this.accounts.rename(who(a), id, body.name);
     if (body.allowInsecure !== undefined) result = await this.accounts.setAllowInsecure(who(a), id, body.allowInsecure);
-    return result as AdminParticipant;
+    return this.withActivity(result as AdminParticipantBase);
   }
 
   @Delete('participants/:id')
@@ -66,8 +78,32 @@ export class AdminController {
 
   @Post('participants/:id/token/reset')
   @HttpCode(200)
-  resetToken(@CurrentAdmin() a: Admin, @Param('id') id: string): Promise<AdminParticipant> {
-    return this.accounts.resetToken(who(a), id);
+  async resetToken(@CurrentAdmin() a: Admin, @Param('id') id: string): Promise<AdminParticipant> {
+    return this.withActivity(await this.accounts.resetToken(who(a), id));
+  }
+
+  // --- how tokens are being used -------------------------------------------------------------
+
+  @Get('token-activity')
+  tokenMonitor(): TokenMonitor {
+    return this.activity.monitor();
+  }
+
+  @Get('token-activity/connections')
+  recentConnections(): ConnectionRecord[] {
+    return this.activity.recent();
+  }
+
+  @Get('participants/:id/activity')
+  participantActivity(@Param('id') id: string): ParticipantActivity {
+    if (!this.accounts.get(id)) throw new ApiError('not_found', 'Participant not found.');
+    return this.activity.detail(id);
+  }
+
+  @Post('participants/:id/activity/review')
+  @HttpCode(200)
+  async reviewActivity(@CurrentAdmin() a: Admin, @Param('id') id: string): Promise<AdminParticipant> {
+    return this.withActivity(await this.accounts.reviewActivity(who(a), id));
   }
 
   @Post('rulesets')

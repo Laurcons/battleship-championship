@@ -22,7 +22,35 @@ model Participant {
   tokenNoticeAt  BigInt?
   /// Admin policy: programs of this participant may connect over plain ws:// (otherwise only wss://).
   allowInsecure  Boolean @default(false)
+  /// Connection signals raised before this moment count as reviewed by the admin (0 = never reviewed).
+  activityReviewedAt BigInt @default(0)
   createdAt      BigInt
+
+  connections ProgramConnection[]
+}
+
+/// One accepted program connection, or one denied attempt (a valid token on somebody else's lobby). Pruned after 30 days.
+model ProgramConnection {
+  id             String  @id @db.VarChar(64)
+  participantId  String  @db.VarChar(64)
+  /// "connected" or "denied".
+  kind           String  @db.VarChar(16)
+  at             BigInt
+  endedAt        BigInt?
+  endReason      String? @db.VarChar(200)
+  ip             String  @db.VarChar(64)
+  secure         Boolean
+  programName    String? @db.VarChar(100)
+  programVersion String? @db.VarChar(100)
+  lobbyId        String  @db.VarChar(40)
+  seat           Int?
+  /// Set when a connection from this other address took this one over while it was active.
+  takeoverIp     String? @db.VarChar(64)
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([participantId, at])
+  @@index([at])
 }
 
 model Ruleset {

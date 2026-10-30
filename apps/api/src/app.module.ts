@@ -8,6 +8,7 @@ import { ApiErrorFilter } from './http/filters.js';
 import { AccessGuard } from './http/guards.js';
 import { LobbiesController } from './http/lobbies.controller.js';
 import { AccountsService } from './platform/accounts.service.js';
+import { ActivityService } from './platform/activity.service.js';
 import { AuditService } from './platform/audit.service.js';
 import { AuthService } from './platform/auth.service.js';
 import { LiveHub } from './platform/live-hub.js';
@@ -31,6 +32,7 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
     @Inject(SettingsService) private readonly settings: SettingsService,
     @Inject(RulesetsService) private readonly rulesets: RulesetsService,
     @Inject(AccountsService) private readonly accounts: AccountsService,
+    @Inject(ActivityService) private readonly activity: ActivityService,
     @Inject(LobbiesService) private readonly lobbies: LobbiesService,
     @Inject(LiveHub) private readonly hub: LiveHub,
     @Inject(AuthService) private readonly auth: AuthService,
@@ -42,6 +44,7 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
     await this.settings.init();
     await this.rulesets.init();
     await this.accounts.init();
+    await this.activity.init();
     await this.lobbies.init();
     this.runtime.init();
     await this.auth.purgeExpired();
@@ -52,6 +55,8 @@ class BootService implements OnModuleInit, OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     if (this.purgeTimer) clearInterval(this.purgeTimer);
     this.lobbies.dispose();
+    this.activity.dispose();
+    await this.activity.flush();
     await this.store.close();
   }
 }
@@ -83,6 +88,7 @@ export class AppModule {
         SettingsService,
         RulesetsService,
         AccountsService,
+        ActivityService,
         AuthService,
         LobbiesService,
         LiveHub,

@@ -5,6 +5,9 @@ import { STORE, type ParticipantRow, type Store } from '../store/store.js';
 import { AuditService } from './audit.service.js';
 import { CLOCK, Mutex, newId, randomBytesUint8, sha256Hex, type Clock } from './util.js';
 
+/** What the accounts know about a participant for the admin; the controller adds the connection activity. */
+export type AdminParticipantBase = Omit<AdminParticipant, 'activity'>;
+
 /** Why a token stopped working: its owner replaced it, or an admin reset it. */
 export type TokenChange = 'replaced' | 'reset';
 
@@ -143,7 +146,7 @@ export class AccountsService {
 
   // --- admin -----------------------------------------------------------------------------------
 
-  private adminView(p: ParticipantRow): AdminParticipant {
+  private adminView(p: ParticipantRow): AdminParticipantBase {
     return {
       id: p.id,
       name: p.name,
@@ -154,7 +157,7 @@ export class AccountsService {
     };
   }
 
-  adminList(): AdminParticipant[] {
+  adminList(): AdminParticipantBase[] {
     return [...this.byId.values()].map((p) => this.adminView(p)).sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -171,7 +174,7 @@ export class AccountsService {
     return trimmed;
   }
 
-  create(actor: string, name: string): Promise<AdminParticipant> {
+  create(actor: string, name: string): Promise<AdminParticipantBase> {
     return this.lock.run(async () => {
       const row: ParticipantRow = {
         id: newId('p'),
@@ -182,6 +185,7 @@ export class AccountsService {
         tokenReplaced: false,
         tokenNoticeAt: null,
         allowInsecure: false,
+        activityReviewedAt: 0,
         createdAt: this.clock.now(),
       };
       await this.store.saveParticipant(row);
@@ -191,7 +195,7 @@ export class AccountsService {
     });
   }
 
-  rename(actor: string, id: string, name: string): Promise<AdminParticipant> {
+  rename(actor: string, id: string, name: string): Promise<AdminParticipantBase> {
     return this.lock.run(async () => {
       const p = this.byId.get(id);
       if (!p) throw new ApiError('not_found', 'Participant not found.');
@@ -204,7 +208,7 @@ export class AccountsService {
   }
 
   /** Allows or forbids plain `ws://` for a participant's programs. Forbidding drops their insecure connections. */
-  setAllowInsecure(actor: string, id: string, allowed: boolean): Promise<AdminParticipant> {
+  setAllowInsecure(actor: string, id: string, allowed: boolean): Promise<AdminParticipantBase> {
     return this.lock.run(async () => {
       const p = this.byId.get(id);
       if (!p) throw new ApiError('not_found', 'Participant not found.');
@@ -222,7 +226,7 @@ export class AccountsService {
    * Takes a participant's token away: they are back to "no token yet", their programs are disconnected,
    * and they see a notice on the Account page. They create a new token themselves; the admin never sees one.
    */
-  resetToken(actor: string, id: string): Promise<AdminParticipant> {
+  resetToken(actor: string, id: string): Promise<AdminParticipantBase> {
     return this.lock.run(async () => {
       const p = this.byId.get(id);
       if (!p) throw new ApiError('not_found', 'Participant not found.');
@@ -234,11 +238,26 @@ export class AccountsService {
         tokenCreatedAt: null,
         tokenReplaced: false,
         tokenNoticeAt: this.clock.now(),
+        // The reset is the answer to whatever was flagged.
+        activityReviewedAt: this.clock.now(),
       };
       await this.store.saveParticipant(next);
       this.index(next);
       await this.audit.record(actor, 'token_reset', p.name);
       this.tokenReplacedListeners.forEach((l) => l(p.id, 'reset'));
+      return this.adminView(next);
+    });
+  }
+
+  /** Marks the token activity raised so far as reviewed; signals that come later show up again. */
+  reviewActivity(actor: string, id: string): Promise<AdminParticipantBase> {
+    return this.lock.run(async () => {
+      const p = this.byId.get(id);
+      if (!p) throw new ApiError('not_found', 'Participant not found.');
+      const next = { ...p, activityReviewedAt: this.clock.now() };
+      await this.store.saveParticipant(next);
+      this.index(next);
+      await this.audit.record(actor, 'activity_reviewed', p.name);
       return this.adminView(next);
     });
   }

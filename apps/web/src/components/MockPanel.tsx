@@ -183,6 +183,16 @@ function PanelBody() {
             <Button variant="outline-danger" onClick={act(() => controls.expireLobby(l.id))}>
               Expire this lobby
             </Button>
+            <Button
+              variant="outline-secondary"
+              onClick={act(() => {
+                const inLobby = new Set(l.seats.map((s) => (s.owner.kind === 'participant' ? s.owner.participantId : '')));
+                const outsider = controls.participants().find((p) => !inLobby.has(p.id));
+                if (outsider) controls.simulateDeniedAttempt(outsider.id, l.id);
+              })}
+            >
+              Someone else's token tries this lobby
+            </Button>
           </ButtonGroup>
         </section>
       )}
@@ -265,6 +275,21 @@ function SeatControls({
           }}
         >
           {connection === 'grace' ? 'Reconnect' : 'Connect program'}
+        </Button>
+        <Button
+          variant="outline-info"
+          title="Connect from a second address of the same participant: the token is then in use from two places"
+          onClick={() => {
+            try {
+              onError(null);
+              controls.connectProgram(lobbyId, seat, profile, 'other');
+            } catch (error) {
+              onError(error instanceof Error ? error.message : String(error));
+            }
+            onChange();
+          }}
+        >
+          From another address
         </Button>
         <Button
           variant="outline-warning"

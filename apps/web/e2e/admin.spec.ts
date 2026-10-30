@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { connectPrograms, createLobby, expectNoAxeViolations, freshApp, loginAs, loginAsAdmin, logout, openLobbyWith, startBattery } from './helpers';
+import { connectPrograms, createLobby, expectNoAxeViolations, freshApp, loginAs, loginAsAdmin, logout, openLobbyWith, rowAction, rowActionEnabled, startBattery } from './helpers';
 
 test.describe('admin', () => {
   test('manages participants, and new names show up in the login dropdown', async ({ page }) => {
@@ -19,13 +19,13 @@ test.describe('admin', () => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.getByTestId('error-alert')).toContainText('letters, digits');
 
-    await page.getByRole('button', { name: 'Rename Eve' }).click();
+    await rowAction(page, 'Eve', 'Rename…');
     await page.getByLabel('New name').fill('Evelyn');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByTestId('participants-table')).toContainText('Evelyn');
 
     // Deleting a participant also deletes every lobby they sit in, and the dialog says which.
-    await page.getByRole('button', { name: 'Delete Alice' }).click();
+    await rowAction(page, 'Alice', 'Delete…');
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('This also deletes');
     await expect(dialog.getByTestId('doomed-count')).toHaveText('3');
@@ -53,7 +53,7 @@ test.describe('admin', () => {
     const row = page.getByTestId('participants-table').getByRole('row').filter({ hasText: 'Dana' });
     const count = Number(await row.getByRole('cell').nth(1).textContent());
     expect(count).toBeGreaterThan(0);
-    await page.getByRole('button', { name: 'Delete Dana' }).click();
+    await rowAction(page, 'Dana', 'Delete…');
     await expect(page.getByRole('dialog').getByTestId('doomed-count')).toHaveText(String(count));
     await page.getByRole('dialog').getByRole('button', { name: 'Delete participant' }).click();
     await expect(page.getByTestId('participants-table')).not.toContainText('Dana');
@@ -71,7 +71,7 @@ test.describe('admin', () => {
     await page.goto('/admin/participants');
     await page.getByLabel('Add a participant').fill('Eve');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-    await page.getByRole('button', { name: 'Delete Eve' }).click();
+    await rowAction(page, 'Eve', 'Delete…');
     await expect(page.getByRole('dialog')).toContainText('Eve is not part of any lobby.');
     await expect(page.getByRole('dialog').getByTestId('doomed-lobbies')).toHaveCount(0);
     await page.getByRole('dialog').getByRole('button', { name: 'Delete participant' }).click();
@@ -84,16 +84,16 @@ test.describe('admin', () => {
     await page.goto('/admin/participants');
     const row = page.getByTestId('participants-table').getByRole('row').filter({ hasText: 'Chen' });
     await expect(row).toContainText('Created');
-    await page.getByRole('button', { name: 'Reset token of Chen' }).click();
+    await rowAction(page, 'Chen', 'Reset token…');
     await expect(page.getByRole('dialog')).toContainText('you never see it');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
     await expect(row).toContainText('Created'); // cancelling changes nothing
 
-    await page.getByRole('button', { name: 'Reset token of Chen' }).click();
+    await rowAction(page, 'Chen', 'Reset token…');
     await page.getByRole('dialog').getByRole('button', { name: 'Reset token' }).click();
     await expect(row).toContainText('Not created yet');
-    await expect(page.getByRole('button', { name: 'Reset token of Chen' })).toBeDisabled(); // nothing left to reset
-    await expect(page.getByRole('button', { name: 'Reset token of Dana' })).toBeEnabled();
+    expect(await rowActionEnabled(page, 'Chen', 'Reset token…')).toBe(false); // nothing left to reset
+    expect(await rowActionEnabled(page, 'Dana', 'Reset token…')).toBe(true);
     await page.goto('/admin/audit');
     await expect(page.getByText('token_reset')).toBeVisible();
 

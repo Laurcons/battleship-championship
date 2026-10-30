@@ -22,6 +22,9 @@ export const keys = {
     settings: ['admin', 'settings'] as const,
     audit: ['admin', 'audit'] as const,
     lobbies: ['admin', 'lobbies'] as const,
+    monitor: ['admin', 'monitor'] as const,
+    connections: ['admin', 'connections'] as const,
+    activity: (id: string) => ['admin', 'activity', id] as const,
   },
 };
 

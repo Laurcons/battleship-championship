@@ -3,6 +3,7 @@ import type { GameEvent, GameSummary, Heatmap, Ruleset, Seat } from '@bsc/engine
 import { PrismaClient } from '../generated/prisma/client.js';
 import type {
   AuditRow,
+  ConnectionRow,
   GameMeta,
   GameRow,
   LobbyRow,
@@ -62,6 +63,7 @@ export class PrismaStore implements Store {
       tokenReplaced: r.tokenReplaced,
       tokenNoticeAt: num(r.tokenNoticeAt),
       allowInsecure: r.allowInsecure,
+      activityReviewedAt: Number(r.activityReviewedAt),
       createdAt: Number(r.createdAt),
     }));
   }
@@ -273,6 +275,41 @@ export class PrismaStore implements Store {
       target: r.target,
       detail: r.detail,
     }));
+  }
+
+  async addConnection(row: ConnectionRow): Promise<void> {
+    await this.prisma.programConnection.create({ data: row });
+  }
+
+  async endConnection(id: string, endedAt: number, reason: string, takeoverIp: string | null): Promise<void> {
+    await this.prisma.programConnection.updateMany({ where: { id, endedAt: null }, data: { endedAt, endReason: reason.slice(0, 200), takeoverIp } });
+  }
+
+  async endOpenConnections(endedAt: number, reason: string): Promise<void> {
+    await this.prisma.programConnection.updateMany({ where: { endedAt: null }, data: { endedAt, endReason: reason } });
+  }
+
+  async listConnections(since: number): Promise<ConnectionRow[]> {
+    const rows = await this.prisma.programConnection.findMany({ where: { at: { gte: since } }, orderBy: { at: 'asc' } });
+    return rows.map((r) => ({
+      id: r.id,
+      participantId: r.participantId,
+      kind: r.kind as ConnectionRow['kind'],
+      at: Number(r.at),
+      endedAt: num(r.endedAt),
+      endReason: r.endReason,
+      ip: r.ip,
+      secure: r.secure,
+      programName: r.programName,
+      programVersion: r.programVersion,
+      lobbyId: r.lobbyId,
+      seat: r.seat,
+      takeoverIp: r.takeoverIp,
+    }));
+  }
+
+  async pruneConnections(before: number): Promise<void> {
+    await this.prisma.programConnection.deleteMany({ where: { at: { lt: before } } });
   }
 
   async saveSession(row: WebSessionRow): Promise<void> {

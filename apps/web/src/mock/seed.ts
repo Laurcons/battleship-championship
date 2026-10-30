@@ -12,7 +12,8 @@ import {
   type SeatRec,
   type SeriesRec,
 } from './state';
-import { newToken } from './util';
+import type { ConnectionFact } from '../api/types';
+import { homeAddress, newToken } from './util';
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -205,6 +206,47 @@ export function createSeedState(now: number): MockState {
     true,
     20 * 60 * 1000,
   );
+
+  // Where the tokens were used from: mostly one home address each, plus a few things worth a look.
+  const link = (participantId: string, ip: string, ago: number, minutes: number, over: Partial<ConnectionFact> = {}) =>
+    state.connections?.push({
+      id: host.nextId('c'),
+      participantId,
+      kind: 'connected',
+      at: now - ago,
+      endedAt: now - ago + minutes * 60_000,
+      endReason: 'Closed by the program.',
+      ip,
+      secure: true,
+      program: { name: 'my-bot', version: '1.0' },
+      lobbyId: a.id,
+      seat: 1,
+      takeoverIp: null,
+      ...over,
+    });
+  state.connections = [];
+  for (const days of [5, 4, 3, 2]) link('p_alice', homeAddress('p_alice'), days * DAY, 40);
+  link('p_alice', '188.24.7.7', DAY, 15); // a new address
+  for (const days of [5, 3]) link('p_bruno', homeAddress('p_bruno'), days * DAY, 40);
+  link('p_bruno', homeAddress('p_bruno'), 3 * HOUR, 20, { endedAt: now - 2 * HOUR, endReason: 'Replaced by a newer connection.', takeoverIp: '5.6.7.8' }); // taken over by another address
+  link('p_bruno', '5.6.7.8', 2 * HOUR, 90, { endedAt: null, endReason: null });
+  for (const days of [4, 2]) link('p_chen', homeAddress('p_chen'), days * DAY, 30, { secure: false, program: { name: 'bot.cpp', version: '1' } }); // plain ws://
+  link('p_dana', homeAddress('p_dana'), 3 * DAY, 30);
+  link('p_dana', homeAddress('p_chen'), 2 * DAY, 30); // on Chen's address too
+  state.connections.push({
+    id: host.nextId('c'),
+    participantId: 'p_dana',
+    kind: 'denied',
+    at: now - 5 * HOUR,
+    endedAt: now - 5 * HOUR,
+    endReason: 'Refused: not their lobby.',
+    ip: homeAddress('p_dana'),
+    secure: true,
+    program: null,
+    lobbyId: a.id,
+    seat: null,
+    takeoverIp: null,
+  }); // a valid token on someone else's lobby
 
   const audit = (at: number, actor: string, action: string, target: string | null = null, detail: string | null = null) =>
     state.audit.push({ id: host.nextId('a'), at, actor, action, target, detail });

@@ -1,15 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Form, InputGroup, Modal, Table } from 'react-bootstrap';
+import { Badge, Button, Dropdown, Form, InputGroup, Modal, Table } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useApi } from '../../api/context';
 import type { AdminParticipant } from '../../api/types';
+import { ActivityModal } from '../../components/ActivityModal';
+import { describeUnreviewed, ModeBadge, unreviewedCount, worstUnreviewed } from '../../components/ActivityBits';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ErrorAlert, Loading } from '../../components/ErrorAlert';
+import { ResetTokenDialog } from '../../components/ResetTokenDialog';
 import { keys, useSession } from '../../hooks/queries';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, timeAgo } from '../../lib/format';
 import { AdminOnly } from './AdminOnly';
 
 const nameSchema = z.object({ name: z.string().trim().min(1, 'Enter a name.').max(24, 'At most 24 characters.') });
@@ -27,6 +30,8 @@ function ParticipantsAdmin() {
   const [renaming, setRenaming] = useState<AdminParticipant | null>(null);
   const [deleting, setDeleting] = useState<AdminParticipant | null>(null);
   const [resetting, setResetting] = useState<AdminParticipant | null>(null);
+  const [inspecting, setInspecting] = useState<AdminParticipant | null>(null);
+  const [resetError, setResetError] = useState<unknown>(null);
   // The lobbies that go with a deleted participant, so the dialog can say whose results are lost.
   const allLobbies = useQuery({ queryKey: keys.admin.lobbies, queryFn: () => api.admin.listAllLobbies(), enabled: !!deleting });
   const doomed = deleting ? (allLobbies.data ?? []).filter((l) => l.seats.some((s) => s.owner.kind === 'participant' && s.owner.participantId === deleting.id)) : [];
@@ -53,14 +58,6 @@ function ParticipantsAdmin() {
     // close the dialog so the error is visible on the page
     onError: () => setDeleting(null),
   });
-  const resetToken = useMutation({
-    mutationFn: (id: string) => api.admin.resetParticipantToken(id),
-    onSuccess: () => {
-      setResetting(null);
-      refresh();
-    },
-    onError: () => setResetting(null),
-  });
   const setInsecure = useMutation({
     mutationFn: ({ id, allowed }: { id: string; allowed: boolean }) => api.admin.setParticipantInsecure(id, allowed),
     onSuccess: refresh,
@@ -76,7 +73,7 @@ function ParticipantsAdmin() {
         Programs must connect over <code>wss://</code> (TLS). Switch on <em>Allow ws://</em> for a participant whose program cannot do TLS: their token then travels unencrypted, so use it on a trusted network only.
         Switching it off disconnects that participant&apos;s plain connections.
       </p>
-      <ErrorAlert error={list.error ?? create.error ?? remove.error ?? resetToken.error ?? setInsecure.error} />
+      <ErrorAlert error={list.error ?? create.error ?? remove.error ?? resetError ?? setInsecure.error} />
       <Form
         noValidate
         className="mb-4"
@@ -104,6 +101,7 @@ function ParticipantsAdmin() {
               <th>Lobbies</th>
               <th>Created</th>
               <th>Token</th>
+              <th>Last connection</th>
               <th>Allow ws://</th>
               <th />
             </tr>
@@ -115,6 +113,30 @@ function ParticipantsAdmin() {
                 <td>{p.lobbyCount}</td>
                 <td className="small">{formatDateTime(p.createdAt)}</td>
                 <td className="small">{p.tokenCreatedAt ? `Created ${formatDateTime(p.tokenCreatedAt)}` : <span className="text-body-secondary">Not created yet</span>}</td>
+                <td className="small" data-testid="last-connection">
+                  {p.activity.lastConnection ? (
+                    <>
+                      {timeAgo(p.activity.lastConnection.at)} · <span className="mono">{p.activity.lastConnection.ip}</span> <ModeBadge secure={p.activity.lastConnection.secure} />
+                    </>
+                  ) : (
+                    <span className="text-body-secondary">Never</span>
+                  )}
+                  {worstUnreviewed(p.activity.unreviewed) && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 ms-2 align-baseline text-decoration-none"
+                      onClick={() => setInspecting(p)}
+                      aria-label={`Open activity of ${p.name}: ${describeUnreviewed(p.activity.unreviewed)}`}
+                      data-testid={`signal-badge-${p.name}`}
+                    >
+                      <Badge bg={worstUnreviewed(p.activity.unreviewed) === 'high' ? 'danger' : worstUnreviewed(p.activity.unreviewed) === 'notice' ? 'warning' : 'secondary'} text={worstUnreviewed(p.activity.unreviewed) === 'notice' ? 'dark' : undefined}>
+                        <i className="bi bi-flag-fill me-1" aria-hidden="true" />
+                        {unreviewedCount(p.activity.unreviewed)}
+                      </Badge>
+                    </Button>
+                  )}
+                </td>
                 <td>
                   <Form.Check
                     type="switch"
@@ -130,22 +152,31 @@ function ParticipantsAdmin() {
                   />
                 </td>
                 <td className="text-end">
-                  <Button size="sm" variant="outline-secondary" className="me-2" onClick={() => setRenaming(p)} aria-label={`Rename ${p.name}`}>
-                    Rename
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline-warning"
-                    className="me-2"
-                    disabled={!p.tokenCreatedAt}
-                    onClick={() => setResetting(p)}
-                    aria-label={`Reset token of ${p.name}`}
-                  >
-                    Reset token
-                  </Button>
-                  <Button size="sm" variant="outline-danger" onClick={() => setDeleting(p)} aria-label={`Delete ${p.name}`}>
-                    Delete
-                  </Button>
+                  <Dropdown align="end">
+                    <Dropdown.Toggle variant="outline-secondary" size="sm" className="no-caret position-relative" aria-label={`Actions for ${p.name}`}>
+                      <i className="bi bi-three-dots" aria-hidden="true" />
+                      {worstUnreviewed(p.activity.unreviewed) && (
+                        <span className={`position-absolute top-0 start-100 translate-middle p-1 border border-light rounded-circle bg-${worstUnreviewed(p.activity.unreviewed) === 'high' ? 'danger' : 'warning'}`} data-testid="signal-dot">
+                          <span className="visually-hidden">unreviewed signals</span>
+                        </span>
+                      )}
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu role="menu" popperConfig={{ strategy: 'fixed' }}>
+                      <Dropdown.Item as="button" role="menuitem" onClick={() => setInspecting(p)}>
+                        Activity…
+                      </Dropdown.Item>
+                      <Dropdown.Item as="button" role="menuitem" onClick={() => setRenaming(p)}>
+                        Rename…
+                      </Dropdown.Item>
+                      <Dropdown.Item as="button" role="menuitem" disabled={!p.tokenCreatedAt} onClick={() => setResetting(p)}>
+                        Reset token…
+                      </Dropdown.Item>
+                      <Dropdown.Divider />
+                      <Dropdown.Item as="button" role="menuitem" className="text-danger" onClick={() => setDeleting(p)}>
+                        Delete…
+                      </Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
                 </td>
               </tr>
             ))}
@@ -206,22 +237,8 @@ function ParticipantsAdmin() {
           </>
         )}
       </ConfirmModal>
-      <ConfirmModal
-        show={!!resetting}
-        title={`Reset the token of ${resetting?.name}?`}
-        confirmLabel="Reset token"
-        variant="warning"
-        busy={resetToken.isPending}
-        onCancel={() => setResetting(null)}
-        onConfirm={() => {
-          if (!resetting) return;
-          create.reset();
-          remove.reset();
-          resetToken.mutate(resetting.id);
-        }}
-      >
-        Their current token stops working and their connected programs are disconnected. They will see a notice on the Account page and create a new token themselves; you never see it.
-      </ConfirmModal>
+      <ResetTokenDialog participant={resetting} onClose={() => setResetting(null)} onError={setResetError} />
+      {inspecting && <ActivityModal participant={inspecting} onHide={() => setInspecting(null)} />}
     </>
   );
 }

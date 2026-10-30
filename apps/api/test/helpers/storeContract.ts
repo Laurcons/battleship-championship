@@ -1,6 +1,6 @@
 import { CLASSIC_10X10, emptyHeatmap, type GameEvent } from '@bsc/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { GameRow, LobbyRow, ParticipantRow, SeriesRow, Store } from '../../src/store/store.js';
+import type { ConnectionRow, GameRow, LobbyRow, ParticipantRow, SeriesRow, Store } from '../../src/store/store.js';
 
 const participant = (over: Partial<ParticipantRow> = {}): ParticipantRow => ({
   id: 'p_1',
@@ -11,7 +11,25 @@ const participant = (over: Partial<ParticipantRow> = {}): ParticipantRow => ({
   tokenReplaced: false,
   tokenNoticeAt: null,
   allowInsecure: false,
+  activityReviewedAt: 0,
   createdAt: 1_000,
+  ...over,
+});
+
+const connection = (over: Partial<ConnectionRow> = {}): ConnectionRow => ({
+  id: 'c_1',
+  participantId: 'p_1',
+  kind: 'connected',
+  at: 10_000,
+  endedAt: null,
+  endReason: null,
+  ip: '84.1.1.1',
+  secure: true,
+  programName: 'bot',
+  programVersion: '1.0',
+  lobbyId: 'K7QM-4XD2-7',
+  seat: 1,
+  takeoverIp: null,
   ...over,
 });
 
@@ -47,7 +65,7 @@ const series = (over: Partial<SeriesRow> = {}): SeriesRow => ({
 const events: GameEvent[] = [
   { type: 'placed', seat: 1, ships: [{ len: 5, x: 0, y: 0, dir: 'h' }], ms: 3 },
   { type: 'shot', seat: 1, x: 1, y: 1, result: 'miss', ms: 2 },
-  { type: 'infraction', seat: 2, code: 'out_of_bounds', message: 'é "quoted"   text', strikes: 1, raw: '{"x":99}' },
+  { type: 'infraction', seat: 2, code: 'out_of_bounds', message: 'é "quoted"  text', strikes: 1, raw: '{"x":99}' },
 ];
 
 const game = (over: Partial<GameRow> = {}): GameRow => ({
@@ -164,6 +182,44 @@ export function describeStoreContract(name: string, create: () => Promise<{ stor
       const rows = await store.listAudit(3);
       expect(rows.map((r) => r.action)).toEqual(['a5', 'a4', 'a3']);
       expect(rows[0]).toMatchObject({ at: 5, actor: 'Alice', target: null, detail: 'odd' });
+    });
+
+    it('keeps the review time of a participant', async () => {
+      await store.saveParticipant(participant({ activityReviewedAt: 12_345 }));
+      expect((await store.listParticipants())[0]?.activityReviewedAt).toBe(12_345);
+    });
+
+    it('stores program connections: open, closed once, listed oldest first from a time, pruned, and gone with the participant', async () => {
+      await store.saveParticipant(participant());
+      await store.saveParticipant(participant({ id: 'p_2', name: 'Bruno' }));
+      await store.addConnection(connection({ id: 'c_2', at: 30_000 }));
+      await store.addConnection(connection({ id: 'c_1', at: 10_000, ip: '2a02:2f0e::1' }));
+      await store.addConnection(connection({ id: 'c_3', participantId: 'p_2', at: 20_000, programName: null, programVersion: null }));
+      await store.addConnection(connection({ id: 'c_4', kind: 'denied', at: 25_000, endedAt: 25_000, endReason: 'Refused: not their lobby.', seat: null }));
+      expect((await store.listConnections(0)).map((c) => c.id)).toEqual(['c_1', 'c_3', 'c_4', 'c_2']);
+      expect((await store.listConnections(20_000)).map((c) => c.id)).toEqual(['c_3', 'c_4', 'c_2']);
+      expect((await store.listConnections(0)).find((c) => c.id === 'c_1')).toEqual(connection({ id: 'c_1', at: 10_000, ip: '2a02:2f0e::1' }));
+
+      // Closing records the reason once; a second close changes nothing.
+      await store.endConnection('c_1', 11_000, 'Replaced by a newer connection.', '91.2.2.2');
+      await store.endConnection('c_1', 99_000, 'Closed by the program.', null);
+      await store.endConnection('c_unknown', 99_000, 'x', null);
+      expect((await store.listConnections(0)).find((c) => c.id === 'c_1')).toMatchObject({ endedAt: 11_000, endReason: 'Replaced by a newer connection.', takeoverIp: '91.2.2.2' });
+
+      // After a restart whatever is still open is closed; closed ones are left alone.
+      await store.endOpenConnections(50_000, 'The platform restarted.');
+      const all = await store.listConnections(0);
+      expect(all.find((c) => c.id === 'c_2')).toMatchObject({ endedAt: 50_000, endReason: 'The platform restarted.' });
+      expect(all.find((c) => c.id === 'c_1')).toMatchObject({ endedAt: 11_000 });
+
+      await store.pruneConnections(20_000);
+      expect((await store.listConnections(0)).map((c) => c.id)).toEqual(['c_3', 'c_4', 'c_2']);
+      await store.deleteParticipant('p_1');
+      expect((await store.listConnections(0)).map((c) => c.id)).toEqual(['c_3']);
+    });
+
+    it('refuses a connection of a participant that does not exist', async () => {
+      await expect(store.addConnection(connection({ participantId: 'p_missing' }))).rejects.toThrow();
     });
 
     it('manages web sessions', async () => {

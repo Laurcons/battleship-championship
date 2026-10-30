@@ -128,3 +128,13 @@ pre code { color: inherit; }
   .ruleset-details { grid-template-columns: 1fr; row-gap: 0; }
   .ruleset-details dd { margin-bottom: .6rem; }
 }
+
+/* A dropdown toggle that is just an icon: no caret. */
+.dropdown-toggle.no-caret::after {
+  display: none;
+}
+
+/* A table row that is evidence for a signal: an accent bar on its left edge (a tint would lower the contrast of its text). */
+.table > tbody > tr.row-flagged > :first-child {
+  box-shadow: inset 4px 0 0 var(--bs-warning);
+}

@@ -1,6 +1,7 @@
 import type {
   AdminParticipant,
   AuditEntry,
+  ConnectionRecord,
   Frame,
   GameDetail,
   GameListItem,
@@ -8,6 +9,7 @@ import type {
   LobbySummary,
   MyToken,
   OpponentChoice,
+  ParticipantActivity,
   ParticipantRef,
   PlatformInfo,
   PlatformSettings,
@@ -17,6 +19,7 @@ import type {
   SeriesInfo,
   SeriesReport,
   Session,
+  TokenMonitor,
 } from './types.js';
 
 /**
@@ -93,6 +96,14 @@ export interface ApiClient {
     deleteParticipant(id: string): Promise<void>;
     /** Takes the participant's token away and disconnects their programs; they create a new one themselves. */
     resetParticipantToken(id: string): Promise<AdminParticipant>;
+    /** How tokens are being used: the signals worth a look, across all participants. */
+    getTokenMonitor(): Promise<TokenMonitor>;
+    /** The newest connections of every participant, for the live list. */
+    listRecentConnections(): Promise<ConnectionRecord[]>;
+    /** One participant's addresses, signals and connection history. */
+    getParticipantActivity(id: string): Promise<ParticipantActivity>;
+    /** Marks everything raised so far as reviewed; newer signals will show up again. */
+    reviewParticipantActivity(id: string): Promise<AdminParticipant>;
     /** Allows or forbids plain ws:// connections for the participant's programs. */
     setParticipantInsecure(id: string, allowed: boolean): Promise<AdminParticipant>;
     createRuleset(ruleset: Ruleset): Promise<RulesetInfo>;

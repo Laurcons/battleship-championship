@@ -2,6 +2,7 @@
 import { expect } from 'vitest';
 import { TestProgram, type ProgramOptions } from './program.js';
 import type { Store } from '../../src/store/store.js';
+import type { Clock } from '../../src/platform/util.js';
 import { eventually, startTestApp, tokenFor, type Client, type TestApp } from './testApp.js';
 
 /** Alice and Bruno with tokens, fast timeouts, and helpers to create lobbies and run batteries. */
@@ -16,9 +17,10 @@ export class World {
     public brunoToken: string,
   ) {}
 
-  static async create(env: Record<string, string> = {}, store?: Store): Promise<World> {
+  static async create(env: Record<string, string> = {}, store?: Store, clock?: Clock): Promise<World> {
     const t = await startTestApp({
       ...(store ? { store } : {}),
+      ...(clock ? { clock } : {}),
       env: { MOVE_TIMEOUT_MS: '400', PLACE_TIMEOUT_MS: '400', GRACE_MS: '600', HELLO_TIMEOUT_MS: '300', ...env },
     });
     const alice = t.client();
