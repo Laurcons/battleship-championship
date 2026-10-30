@@ -39,7 +39,7 @@ interface Row {
 const MEMBERS = { Alice: 200, Bruno: 200 };
 const rows: Row[] = [
   { method: 'GET', path: () => '/api/session', expect: { anonymous: 200, admin: 200, Alice: 200, Bruno: 200, Chen: 200 } },
-  { method: 'GET', path: () => '/api/rulesets', expect: { anonymous: 401, admin: 200, Alice: 200, Bruno: 200, Chen: 200 } },
+  { method: 'GET', path: () => '/api/rulesets', expect: { anonymous: 200, admin: 200, Alice: 200, Bruno: 200, Chen: 200 } },
   { method: 'GET', path: () => '/api/participants', expect: { anonymous: 401, admin: 200, Alice: 200, Bruno: 200, Chen: 200 } },
   { method: 'GET', path: () => '/api/platform', expect: { anonymous: 401, admin: 200, Alice: 200, Bruno: 200, Chen: 200 } },
   { method: 'GET', path: () => '/api/me/token', expect: { anonymous: 401, admin: 403, Alice: 200, Bruno: 200, Chen: 200 } },

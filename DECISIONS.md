@@ -172,7 +172,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 
 ## 14. Documentation and examples
 
-- Full documentation of the platform-program interface, built into the web app behind the participant login:
+- Full documentation of the platform-program interface, built into the web app. **The `/docs` pages are public** (no login needed; visitors get a bar with the login links), and so is `GET /api/rulesets`, because the rulesets page lists the live rulesets. Lobby counts in that list stay admin-only, and every other route still needs a login:
   - a guide with the state machine diagram;
   - a generated message reference for every supported protocol version;
   - an error code table;

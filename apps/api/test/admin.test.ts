@@ -73,6 +73,19 @@ describe('rulesets', () => {
     expect((await admin.get('/api/rulesets')).body[0].lobbyCount).toBe(0);
   });
 
+  it('lists the rulesets for visitors who are not logged in (the public documentation), without admin-only data', async () => {
+    const visitor = t.client();
+    const seen = await visitor.get('/api/rulesets');
+    expect(seen.status).toBe(200);
+    expect(seen.body.length).toBeGreaterThan(0);
+    expect(seen.body.every((r: { lobbyCount: number | null }) => r.lobbyCount === null)).toBe(true);
+    expect(seen.body).toEqual((await alice.get('/api/rulesets')).body); // exactly what a participant sees
+    // Nothing else opened up with it.
+    for (const path of ['/api/participants', '/api/platform', '/api/lobbies', '/api/admin/participants', '/api/me/token']) {
+      expect((await visitor.get(path)).status, path).toBe(401);
+    }
+  });
+
   it('validates new rulesets and keeps ids unique', async () => {
     const ok = await admin.post('/api/admin/rulesets', ruleset('quick-8x8'));
     expect(ok.status).toBe(201);

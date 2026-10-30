@@ -107,6 +107,27 @@ test.describe('real stack: admin', () => {
     await expect(wesPage.getByTestId('lobby-not-found')).toBeVisible();
   });
 
+  test('the documentation is public, including the live ruleset list, and nothing else is', async ({ browser }) => {
+    const visitor = await (await browser.newContext()).newPage();
+    await visitor.goto('/docs/rulesets');
+    await expect(visitor.getByTestId('ruleset-card').first()).toBeVisible();
+    await expect(visitor.getByTestId('rulesets-list')).toContainText('classic-10x10');
+    await expect(visitor.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Participant login' })).toBeVisible();
+    const results = await new AxeBuilder({ page: visitor }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(results.violations.map((v) => v.id)).toEqual([]);
+    await visitor.goto('/docs/examples');
+    await expect(visitor.getByTestId('example-typescript')).toBeVisible();
+
+    for (const path of ['/api/participants', '/api/lobbies', '/api/platform', '/api/admin/participants']) {
+      expect((await visitor.request.get(path)).status(), path).toBe(401);
+    }
+    const rulesets = await visitor.request.get('/api/rulesets');
+    expect(rulesets.status()).toBe(200);
+    expect(((await rulesets.json()) as { lobbyCount: number | null }[]).every((r) => r.lobbyCount === null)).toBe(true); // counts stay admin-only
+    await visitor.goto('/lobbies');
+    await expect(visitor).toHaveURL(/\/login$/);
+  });
+
   test('the god-mode policy locks the option for new lobbies between participants', async ({ browser }) => {
     const admin = await AdminApi.login();
     const [pat, quin] = [await admin.person('Pat'), await admin.person('Quin')];

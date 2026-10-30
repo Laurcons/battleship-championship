@@ -33,6 +33,9 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
           {children}
         </Card.Body>
       </Card>
+      <p className="text-center small mt-3">
+        <Link to="/docs">Read the documentation</Link>
+      </p>
     </Container>
   );
 }

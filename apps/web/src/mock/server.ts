@@ -490,8 +490,9 @@ export class MockServer implements RunnerHost {
   // --------------------------------------------------------- shared read data
 
   /** The default first, then the other enabled rulesets (newest first), then the disabled ones (newest first). */
+  /** Public, like the real API: the documentation shows the rulesets to visitors who have not logged in. */
   listRulesets(): RulesetInfo[] {
-    const session = this.requireSession();
+    const admin = this.session?.role === 'admin';
     const defaultId = this.state.settings.defaultRulesetId;
     const rank = (r: { enabled: boolean; ruleset: Ruleset }) => (r.ruleset.id === defaultId ? 0 : r.enabled ? 1 : 2);
     return [...this.state.rulesets]
@@ -500,7 +501,7 @@ export class MockServer implements RunnerHost {
         ruleset: r.ruleset,
         enabled: r.enabled,
         createdAt: r.createdAt,
-        lobbyCount: session.role === 'admin' ? this.state.lobbies.filter((l) => l.rulesetId === r.ruleset.id).length : null,
+        lobbyCount: admin ? this.state.lobbies.filter((l) => l.rulesetId === r.ruleset.id).length : null,
         isDefault: r.ruleset.id === defaultId,
       }));
   }

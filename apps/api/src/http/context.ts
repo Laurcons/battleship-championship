@@ -25,6 +25,11 @@ export const CurrentViewer = createParamDecorator((_data: unknown, ctx: Executio
   return req.viewer;
 });
 
+/** The signed-in viewer, or undefined for an anonymous caller. Only for routes declared `public`. */
+export const OptionalViewer = createParamDecorator((_data: unknown, ctx: ExecutionContext): Viewer | undefined =>
+  ctx.switchToHttp().getRequest<AuthedRequest>().viewer,
+);
+
 export const CurrentParticipant = createParamDecorator((_data: unknown, ctx: ExecutionContext): { participantId: string; name: string } => {
   const req = ctx.switchToHttp().getRequest<AuthedRequest>();
   if (req.viewer?.role !== 'participant') throw new ApiError('forbidden', 'Only participants can do this.');

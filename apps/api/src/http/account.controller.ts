@@ -4,7 +4,7 @@ import { AccountsService } from '../platform/accounts.service.js';
 import type { Viewer } from '../platform/policy.js';
 import { RulesetsService } from '../platform/rulesets.service.js';
 import { SettingsService } from '../platform/settings.service.js';
-import { Access, CurrentParticipant, CurrentViewer } from './context.js';
+import { Access, CurrentParticipant, OptionalViewer } from './context.js';
 
 @Controller('api')
 export class AccountController {
@@ -41,10 +41,11 @@ export class AccountController {
     await this.accounts.acknowledgeTokenNotice(me.participantId);
   }
 
+  /** Public: the documentation lists the rulesets for visitors who have not logged in. Lobby counts are admin-only. */
   @Get('rulesets')
-  @Access('any')
-  listRulesets(@CurrentViewer() viewer: Viewer): RulesetInfo[] {
-    return this.rulesets.list(viewer.role === 'admin');
+  @Access('public')
+  listRulesets(@OptionalViewer() viewer: Viewer | undefined): RulesetInfo[] {
+    return this.rulesets.list(viewer?.role === 'admin');
   }
 
   @Get('participants')

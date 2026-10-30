@@ -603,6 +603,22 @@ describe('default ruleset', () => {
   });
 });
 
+describe('public documentation', () => {
+  it('lists rulesets without a session, with no lobby counts; the admin still sees them', () => {
+    server.logout();
+    const visitor = server.listRulesets();
+    expect(visitor.length).toBeGreaterThan(0);
+    expect(visitor.every((r) => r.lobbyCount === null)).toBe(true);
+    alice();
+    expect(server.listRulesets()).toEqual(visitor);
+    admin();
+    expect(server.listRulesets().some((r) => typeof r.lobbyCount === 'number')).toBe(true);
+    server.logout();
+    expect(code(() => server.listParticipants())).toBe('unauthenticated');
+    expect(code(() => server.listLobbies())).toBe('unauthenticated');
+  });
+});
+
 describe('admin: deleting participants and resetting tokens', () => {
   const lobbyIds = () => {
     admin();

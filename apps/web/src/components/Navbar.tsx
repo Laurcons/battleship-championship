@@ -4,6 +4,37 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useApi } from '../api/context';
 import type { Session } from '../api/types';
 
+/** The bar shown on public pages (the documentation) to someone who has not logged in. */
+export function PublicNavbar() {
+  const link = ({ isActive }: { isActive: boolean }) => `nav-link${isActive ? ' active' : ''}`;
+  return (
+    <Navbar expand="md" variant="dark" bg="primary" className="mb-4" aria-label="Main navigation">
+      <Container>
+        <Navbar.Brand as={NavLink} to="/login">
+          <i className="bi bi-grid-3x3-gap-fill me-2" aria-hidden="true" />
+          Battleships Championship
+        </Navbar.Brand>
+        <Navbar.Toggle aria-controls="public-nav" />
+        <Navbar.Collapse id="public-nav">
+          <Nav className="me-auto">
+            <NavLink to="/docs" className={link}>
+              Docs
+            </NavLink>
+          </Nav>
+          <Nav>
+            <NavLink to="/login" className={link}>
+              Participant login
+            </NavLink>
+            <NavLink to="/admin/login" className={link}>
+              Admin login
+            </NavLink>
+          </Nav>
+        </Navbar.Collapse>
+      </Container>
+    </Navbar>
+  );
+}
+
 export function AppNavbar({ session }: { session: Session }) {
   const api = useApi();
   const qc = useQueryClient();

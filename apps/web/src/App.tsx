@@ -1,7 +1,7 @@
 import { Container } from 'react-bootstrap';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Loading } from './components/ErrorAlert';
-import { AppNavbar } from './components/Navbar';
+import { AppNavbar, PublicNavbar } from './components/Navbar';
 import { useSession } from './hooks/queries';
 import { MockPanel } from './components/MockPanel';
 import { AdminLoginPage, LoginPage } from './pages/LoginPage';
@@ -34,12 +34,29 @@ function Shell() {
   );
 }
 
+/** Pages anyone may read. Logged-in users get their usual navigation; visitors get a bar with the login links. */
+function PublicShell() {
+  const { data: session, isLoading } = useSession();
+  if (isLoading) return <Loading />;
+  return (
+    <>
+      {session ? <AppNavbar session={session} /> : <PublicNavbar />}
+      <Container className="pb-5">
+        <Outlet />
+      </Container>
+    </>
+  );
+}
+
 export function App() {
   return (
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route element={<PublicShell />}>
+          <Route path="/docs/*" element={<DocsPage />} />
+        </Route>
         <Route element={<Shell />}>
           <Route index element={<Navigate to="/lobbies" replace />} />
           <Route path="/lobbies" element={<LobbiesPage />} />
@@ -47,7 +64,6 @@ export function App() {
           <Route path="/lobbies/:lobbyId" element={<LobbyPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/token" element={<Navigate to="/account" replace />} />
-          <Route path="/docs/*" element={<DocsPage />} />
           <Route path="/admin" element={<Navigate to="/admin/participants" replace />} />
           <Route path="/admin/participants" element={<AdminParticipantsPage />} />
           <Route path="/admin/rulesets" element={<AdminRulesetsPage />} />
