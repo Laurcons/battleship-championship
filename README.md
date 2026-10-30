@@ -65,4 +65,4 @@ The platform assumes friendly participants but defends against technical abuse: 
 
 ## Licence
 
-Not chosen yet. The code is kept free of secrets and personal data so it can be opened up later.
+The platform is licensed under the [GNU Affero General Public License v3](LICENSE). The example programs in [examples/](examples/) are under the [MIT licence](examples/LICENSE), so you can copy them as the start of your own program without taking on the AGPL.

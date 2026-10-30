@@ -15,3 +15,5 @@ Both read their settings from environment variables:
 - `python/bot.py`: Python 3.9 or newer with `pip install websockets`: `python bot.py`.
 
 The fixed fleet layout puts ship *i* on row `2*i`, starting at column 0, pointing right. It is legal for the classic fleet on a 10x10 board and for any ruleset where the board is wide and tall enough.
+
+These examples are under the MIT licence (see `LICENSE` in this folder), unlike the rest of the repository, which is AGPL-3.0. Copy them freely as the start of your own program.
