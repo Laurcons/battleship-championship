@@ -26,7 +26,7 @@ Inside `bsc.cpp`, from the bottom up: sockets (Winsock functions are looked up w
 Behavior worth knowing:
 
 - **Plain `ws://` only.** There is no TLS. The account must be allowed to use `ws://` (admin page *Participants*, switch *Allow ws://*); otherwise `hello` fails with `tls_required` (close code 4403) and the shim says what to do. A `wss://` URL is refused with an explanation, and so is a proxy that redirects HTTP to HTTPS.
-- **Reconnects** after a dropped connection or a platform restart (1 s, doubling to 10 s), reusing the `session_id` so the seat is resumed. It **stops** on errors that retrying cannot fix: bad token or lobby (4401), `ws://` not allowed (4403), wrong ruleset (4426), lobby full (4409), and 4000 (lobby closed, token replaced, or another program took the seat).
+- **Reconnects** after a dropped connection or a platform restart (1 s, doubling to 10 s), reusing the `session_id` so the seat is resumed. It **stops** on errors that retrying cannot fix: bad token or lobby (4401), `ws://` not allowed (4403), wrong ruleset (4426), lobby full (4409), lobby expired (4410), and 4000 (lobby closed, token replaced, or another program took the seat).
 - Settings can be overridden with `BSC_URL`, `BSC_TOKEN`, `BSC_LOBBY`, `BSC_RULESET` and `BSC_NAME`, like the other examples (the tests use this). Without a lobby configured, it asks for one on stdin.
 - The server's `Sec-WebSocket-Accept` is not verified (it would need SHA-1, and without TLS it protects nothing).
 - Frames bigger than 64 KiB are skipped (the platform's largest, a 20x20 game over with 400 shots each way, is about 27 KiB).

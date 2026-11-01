@@ -1038,9 +1038,10 @@ static int explain_close() {
     else if (c == 4401) say("Autentificare esuata: token gresit, lobby inexistent sau lobby-ul nu este al tau. Verifica bsc_token si codul lobby-ului.");
     else if (c == 4403) say("Contul tau are voie sa foloseasca doar wss://. Cere adminului sa activeze \"Allow ws://\" pentru contul tau (tokenul tau a fost trimis necriptat, ia in calcul sa-l inlocuiesti).");
     else if (c == 4409) say("Lobby-ul nu mai are loc liber pentru tine.");
+    else if (c == 4410) say("Lobby-ul a expirat din inactivitate si nu mai poate fi jucat. Creeaza un lobby nou si pune-i codul in bsc_lobby.");
     else if (c == 4426) say("Regulamentul lobby-ului nu este in bsc_ruleset. Pune regulamentul de mai sus in bsc_ruleset.");
     else if (c == 4000) say("Lobby-ul a fost inchis, tokenul a fost inlocuit, sau s-a conectat alt program pe acelasi loc.");
-    return (c == 4400 || c == 4401 || c == 4403 || c == 4409 || c == 4426 || c == 4000) ? GIVE_UP : RETRY;
+    return (c == 4400 || c == 4401 || c == 4403 || c == 4409 || c == 4410 || c == 4426 || c == 4000) ? GIVE_UP : RETRY;
 }
 
 static int run_once() {

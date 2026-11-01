@@ -344,7 +344,7 @@ describe.skipIf(!haveCompiler)('C++ shim against a scripted platform', () => {
   }, 20_000);
 
   it('reconnects after transient close codes, but gives up on the ones retrying cannot fix', async () => {
-    for (const [code, retries] of [[4500, true], [4408, true], [4401, false], [4403, false], [4426, false], [4409, false], [4000, false]] as const) {
+    for (const [code, retries] of [[4500, true], [4408, true], [4401, false], [4403, false], [4426, false], [4409, false], [4410, false], [4000, false]] as const) {
       const fake = await Fake.start();
       const p = run(probeBin, fake.env());
       await fake.received(1);

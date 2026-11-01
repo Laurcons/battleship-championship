@@ -241,17 +241,18 @@ Minimum traffic is **two frames per move** (`fire`, then `turn`) and **one round
 
 `error.code` values for gameplay errors (in `turn.error` / `place.error`): `out_of_bounds`, `already_fired`, `bad_fleet`, `ship_out_of_bounds`, `ships_overlap`, `ships_touching`, `bad_shape`.
 
-Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `bad_hello`, `auth_failed`, `tls_required`, `ruleset_mismatch`, `lobby_full`, `hello_timeout` (the WebSocket close code says the same, see below).
+Standalone `error.code` values: `bad_json`, `unknown_type`, `unexpected_message`, `frame_too_large`, `rate_limited`. Just before the platform closes a connection during the handshake it also sends a fatal `error` whose code names the reason: `bad_hello`, `auth_failed`, `tls_required`, `ruleset_mismatch`, `lobby_full`, `lobby_expired`, `hello_timeout` (the WebSocket close code says the same, see below).
 
 WebSocket close codes (after a fatal condition at connect time):
 
 | Code | Meaning |
 |---|---|
 | 4400 | bad request (invalid `hello`) |
-| 4401 | `auth_failed`: bad token, unknown lobby, or not allowed. The platform deliberately does not distinguish these. |
+| 4401 | `auth_failed`: bad token, unknown lobby, or not allowed (not a seat owner in that lobby). The platform deliberately does not distinguish these. |
 | 4403 | `tls_required`: the token is valid, but the account may not connect over plain `ws://`. Only sent after authentication. |
 | 4408 | no `hello` within 5 s |
 | 4409 | lobby has no empty seat |
+| 4410 | `lobby_expired`: the lobby was idle for too long and is read-only now. Only sent after authentication, to a participant who owns a seat in it; create a new lobby instead. |
 | 4426 | none of the `accepts` rulesets matches the lobby's ruleset. Only sent after authentication; the message names the lobby's ruleset. |
 | 4429 | rate limited |
 | 4500 | internal error |

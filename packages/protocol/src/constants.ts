@@ -33,6 +33,7 @@ export const STANDALONE_ERROR_CODES = [
   'auth_failed',
   'ruleset_mismatch',
   'lobby_full',
+  'lobby_expired',
   'hello_timeout',
   'tls_required',
 ] as const;
@@ -46,6 +47,7 @@ export const CLOSE = {
   TLS_REQUIRED: 4403,
   HELLO_TIMEOUT: 4408,
   LOBBY_FULL: 4409,
+  LOBBY_EXPIRED: 4410,
   RULESET_MISMATCH: 4426,
   RATE_LIMITED: 4429,
   INTERNAL: 4500,

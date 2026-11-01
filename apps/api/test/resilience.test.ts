@@ -299,7 +299,14 @@ describe('idle lobbies', () => {
       expect((await alice.get(`/api/lobbies/${lobby.id}`)).body).toMatchObject({ status: 'expired', canStart: false });
       expect((await alice.post(`/api/lobbies/${lobby.id}/start`, { games: 1 })).status).toBe(409);
       const late = await TestProgram.connect(t.url, { token, lobby: lobby.id });
-      expect((await late.waitForClose()).code).toBe(4401);
+      expect((await late.waitForClose()).code).toBe(4410);
+      expect(late.of('error')).toMatchObject([{ code: 'lobby_expired', fatal: true }]);
+      // A stranger with a valid token learns nothing: the lobby just looks unknown to them.
+      const bruno = t.client();
+      await bruno.loginAs(t.people.Bruno);
+      const brunoToken = (await bruno.post('/api/me/token')).body.token as string;
+      const nosy = await TestProgram.connect(t.url, { token: brunoToken, lobby: lobby.id });
+      expect((await nosy.waitForClose()).code).toBe(4401);
     } finally {
       await t.close();
     }

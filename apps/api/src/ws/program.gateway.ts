@@ -280,7 +280,10 @@ export class ProgramGateway implements OnApplicationBootstrap, BeforeApplication
       this.activity.denied(participant, { ip: link.ip, secure: link.secure, lobbyId: lobby.id });
       return deny();
     }
-    if (this.lobbies.statusOf(lobby) === 'expired') return deny();
+    // Only the lobby's own participants get here, so saying what happened leaks nothing.
+    if (this.lobbies.statusOf(lobby) === 'expired') {
+      return this.fatal(link, 'lobby_expired', 'This lobby expired after being idle and cannot be played again. Create a new lobby and connect to its code.', CLOSE.LOBBY_EXPIRED);
+    }
 
     if (!link.secure && !participant.allowInsecure) {
       return this.fatal(
