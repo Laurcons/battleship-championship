@@ -241,6 +241,9 @@ importers:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       fast-check:
         specifier: ^4.10.2
         version: 4.10.2

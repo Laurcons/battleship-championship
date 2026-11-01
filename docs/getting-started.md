@@ -40,6 +40,7 @@ Use a standard WebSocket client. Nothing else is needed: no SDK, no special fram
 | URL | `wss://<this site>/program/v1` (plain `ws://` only if the admin has allowed it for your account) |
 | First message | `hello` with your token and the lobby id (within 5 s) |
 | Heartbeat | WebSocket ping/pong, handled automatically by your library |
+| JSON Schemas | Of every message, linked from the *Protocol* page |
 
 The example programs (see *Examples*) read three environment variables: `BSC_URL`, `BSC_TOKEN` and `BSC_LOBBY`.
 

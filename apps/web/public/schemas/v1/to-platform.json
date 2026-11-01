@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "to-platform.json",
+  "title": "Program protocol v1: frames sent by the program",
+  "description": "hello, placement and fire.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Hello"
+    },
+    {
+      "$ref": "#/$defs/Placement"
+    },
+    {
+      "$ref": "#/$defs/Fire"
+    }
+  ],
+  "$defs": {
+    "Hello": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hello"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The account token (bsc_...)."
+        },
+        "lobby": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "The lobby id, for example K7QM-4XD2-7. Case, dashes and spaces are not significant."
+        },
+        "accepts": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "description": "Ids of the rulesets this program can play. The lobby refuses the connection if its ruleset is not listed."
+        },
+        "program": {
+          "$ref": "#/$defs/ProgramInfo"
+        },
+        "session_id": {
+          "description": "The session_id of the latest welcome, to reclaim exactly the same seat. Optional.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "type",
+        "token",
+        "lobby",
+        "accepts"
+      ],
+      "description": "First frame of every connection: authenticates, joins the lobby, checks the ruleset and says the program is ready."
+    },
+    "ProgramInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Name of the program, shown in the web interface."
+        },
+        "version": {
+          "description": "Version of the program, shown in the web interface.",
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "Self-reported metadata of a program."
+    },
+    "Placement": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "placement"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "ships": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ship"
+          },
+          "description": "The whole fleet, in any order."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "ships"
+      ],
+      "description": "Answer to a place request: the complete fleet in one message."
+    },
+    "Ship": {
+      "type": "object",
+      "properties": {
+        "len": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Length in cells."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Column of the first cell (0-based)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Row of the first cell (0-based)."
+        },
+        "dir": {
+          "type": "string",
+          "enum": [
+            "h",
+            "v"
+          ],
+          "description": "\"h\" extends towards +x, \"v\" towards +y."
+        }
+      },
+      "required": [
+        "len",
+        "x",
+        "y",
+        "dir"
+      ],
+      "description": "A ship placement."
+    },
+    "Fire": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fire"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Column to shoot at (0-based)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Row to shoot at (0-based)."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "x",
+        "y"
+      ],
+      "description": "Answer to a turn request: the cell to shoot at."
+    }
+  }
+}

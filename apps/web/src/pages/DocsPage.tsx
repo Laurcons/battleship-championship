@@ -86,6 +86,7 @@ function ProtocolPage() {
             <th>Version</th>
             <th>Endpoint</th>
             <th>Status</th>
+            <th>JSON Schemas</th>
             <th />
           </tr>
         </thead>
@@ -95,6 +96,17 @@ function ProtocolPage() {
               <td>v{v.version}</td>
               <td className="mono">{v.path}</td>
               <td>{v.status}</td>
+              <td>
+                <ul className="list-unstyled small m-0" data-testid={`schemas-v${v.version}`}>
+                  {v.schemas.map((s) => (
+                    <li key={s.href}>
+                      <a href={s.href} target="_blank" rel="noopener">
+                        {s.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </td>
               <td className="small text-body-secondary">{v.note}</td>
             </tr>
           ))}

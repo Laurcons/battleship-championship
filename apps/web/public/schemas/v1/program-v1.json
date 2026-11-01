@@ -1,0 +1,870 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "program-v1.json",
+  "title": "Program protocol v1: every frame",
+  "description": "Any frame of the program protocol, in either direction. The \"type\" field tells them apart.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Hello"
+    },
+    {
+      "$ref": "#/$defs/Placement"
+    },
+    {
+      "$ref": "#/$defs/Fire"
+    },
+    {
+      "$ref": "#/$defs/Welcome"
+    },
+    {
+      "$ref": "#/$defs/Place"
+    },
+    {
+      "$ref": "#/$defs/Turn"
+    },
+    {
+      "$ref": "#/$defs/GameOver"
+    },
+    {
+      "$ref": "#/$defs/Reset"
+    },
+    {
+      "$ref": "#/$defs/ErrorMessage"
+    }
+  ],
+  "$defs": {
+    "Hello": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hello"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The account token (bsc_...)."
+        },
+        "lobby": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "The lobby id, for example K7QM-4XD2-7. Case, dashes and spaces are not significant."
+        },
+        "accepts": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "description": "Ids of the rulesets this program can play. The lobby refuses the connection if its ruleset is not listed."
+        },
+        "program": {
+          "$ref": "#/$defs/ProgramInfo"
+        },
+        "session_id": {
+          "description": "The session_id of the latest welcome, to reclaim exactly the same seat. Optional.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "type",
+        "token",
+        "lobby",
+        "accepts"
+      ],
+      "description": "First frame of every connection: authenticates, joins the lobby, checks the ruleset and says the program is ready."
+    },
+    "ProgramInfo": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Name of the program, shown in the web interface."
+        },
+        "version": {
+          "description": "Version of the program, shown in the web interface.",
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "Self-reported metadata of a program."
+    },
+    "Placement": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "placement"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "ships": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Ship"
+          },
+          "description": "The whole fleet, in any order."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "ships"
+      ],
+      "description": "Answer to a place request: the complete fleet in one message."
+    },
+    "Ship": {
+      "type": "object",
+      "properties": {
+        "len": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Length in cells."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Column of the first cell (0-based)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Row of the first cell (0-based)."
+        },
+        "dir": {
+          "type": "string",
+          "enum": [
+            "h",
+            "v"
+          ],
+          "description": "\"h\" extends towards +x, \"v\" towards +y."
+        }
+      },
+      "required": [
+        "len",
+        "x",
+        "y",
+        "dir"
+      ],
+      "description": "A ship placement."
+    },
+    "Fire": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "fire"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "x": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Column to shoot at (0-based)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000,
+          "description": "Row to shoot at (0-based)."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "x",
+        "y"
+      ],
+      "description": "Answer to a turn request: the cell to shoot at."
+    },
+    "Welcome": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "welcome"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Identifies this connection's session. Send it as hello.session_id to reclaim the seat. A new one is issued on every welcome."
+        },
+        "seat": {
+          "anyOf": [
+            {
+              "type": "number",
+              "const": 1
+            },
+            {
+              "type": "number",
+              "const": 2
+            }
+          ],
+          "description": "The seat this program plays."
+        },
+        "resumed": {
+          "type": "boolean",
+          "description": "True when the seat was reclaimed inside its resume window."
+        },
+        "lobby": {
+          "type": "string",
+          "description": "The lobby id in canonical form."
+        },
+        "ruleset": {
+          "$ref": "#/$defs/Ruleset"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        }
+      },
+      "required": [
+        "type",
+        "session_id",
+        "seat",
+        "resumed",
+        "lobby",
+        "ruleset",
+        "limits"
+      ],
+      "description": "Answer to an accepted hello."
+    },
+    "Ruleset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "width": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Columns."
+        },
+        "height": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Rows."
+        },
+        "fleet": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "description": "Length of every ship each program places."
+        },
+        "touching": {
+          "type": "boolean",
+          "description": "Whether ships may touch, diagonals included."
+        },
+        "extra_turn_on_hit": {
+          "type": "boolean",
+          "description": "Whether a hit gives the shooter another turn."
+        },
+        "announce_sunk": {
+          "type": "boolean",
+          "description": "Whether sinking a ship is reported (\"sunk\" with its length, enemy_remaining, # cells)."
+        },
+        "repeat_shot": {
+          "type": "string",
+          "enum": [
+            "invalid",
+            "waste"
+          ],
+          "description": "\"invalid\": a strike. \"waste\": the shot is ignored and the turn passes."
+        },
+        "reveal_on_game_over": {
+          "type": "boolean",
+          "description": "Whether game_over reveals the opponent layout and shots."
+        }
+      },
+      "required": [
+        "id",
+        "width",
+        "height",
+        "fleet",
+        "touching",
+        "extra_turn_on_hit",
+        "announce_sunk",
+        "repeat_shot",
+        "reveal_on_game_over"
+      ],
+      "description": "The rules of the lobby."
+    },
+    "Limits": {
+      "type": "object",
+      "properties": {
+        "place_ms": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Time to answer a place request."
+        },
+        "move_ms": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Time to answer a turn request."
+        },
+        "grace_ms": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "How long a disconnected seat may come back during a game or battery."
+        },
+        "max_strikes": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Strikes after which a game is lost."
+        }
+      },
+      "required": [
+        "place_ms",
+        "move_ms",
+        "grace_ms",
+        "max_strikes"
+      ],
+      "description": "Platform limits, the same for every ruleset."
+    },
+    "Place": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "place"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Milliseconds, counted from the moment the platform sends this frame, to answer."
+        },
+        "game": {
+          "$ref": "#/$defs/GameInfo"
+        },
+        "opponent": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Display name of the opponent."
+            },
+            "program": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What the opponent program said in its hello, or null."
+            }
+          },
+          "required": [
+            "name",
+            "program"
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameplayError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Set when the previous placement was invalid and this request repeats it."
+        },
+        "strikes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Your strikes in this game so far."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "deadline_ms",
+        "game",
+        "opponent",
+        "error",
+        "strikes"
+      ],
+      "description": "Request: place the fleet. Also the start of a game."
+    },
+    "GameInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique id of this game."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "1-based number of the game in the battery. 1 starts a new battery."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Number of games in the battery."
+        },
+        "first": {
+          "type": "string",
+          "enum": [
+            "you",
+            "opponent"
+          ],
+          "description": "Who shoots first."
+        }
+      },
+      "required": [
+        "id",
+        "index",
+        "total",
+        "first"
+      ],
+      "description": "Which game of the battery this is."
+    },
+    "GameplayError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "out_of_bounds",
+            "already_fired",
+            "bad_fleet",
+            "ship_out_of_bounds",
+            "ships_overlap",
+            "ships_touching",
+            "bad_shape"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "Human readable explanation."
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "description": "Why the previous reply was invalid."
+    },
+    "Turn": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "turn"
+        },
+        "rid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Identifies one request. A reply must carry the rid of the request it answers."
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Milliseconds, counted from the moment the platform sends this frame, to answer."
+        },
+        "game": {
+          "$ref": "#/$defs/GameInfo"
+        },
+        "you": {
+          "$ref": "#/$defs/OwnGrid"
+        },
+        "enemy": {
+          "$ref": "#/$defs/EnemyGrid"
+        },
+        "enemy_remaining": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Lengths of the opponent's unsunk ships, longest first. Null when sunk ships are not announced."
+        },
+        "last_shot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Shot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Result of your previous shot. Null on your first turn of the game."
+        },
+        "incoming": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Shot"
+          },
+          "description": "The opponent's shots since your last shot, in order."
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameplayError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Set when the previous shot was invalid and this request repeats it."
+        },
+        "strikes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Your strikes in this game so far."
+        }
+      },
+      "required": [
+        "type",
+        "rid",
+        "deadline_ms",
+        "game",
+        "you",
+        "enemy",
+        "enemy_remaining",
+        "last_shot",
+        "incoming",
+        "error",
+        "strikes"
+      ],
+      "description": "Request: choose a cell to shoot at. Carries the complete state of the game."
+    },
+    "OwnGrid": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 20,
+        "pattern": "^[.oSx]+$"
+      },
+      "description": "Your own board, one string per row (height rows of width characters): . water, o enemy shot missed, S intact ship, x hit ship cell."
+    },
+    "EnemyGrid": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 20,
+        "pattern": "^[.ox#]+$"
+      },
+      "description": "What you know of the opponent board, one string per row (height rows of width characters): . not shot, o your shot missed, x hit, # cell of a sunk ship (only when sunk ships are announced)."
+    },
+    "Shot": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Column (0-based)."
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Row (0-based)."
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "miss",
+            "hit",
+            "sunk",
+            "repeat"
+          ],
+          "description": "\"sunk\" only when the ruleset announces sunk ships, otherwise \"hit\". \"repeat\" only with repeat_shot \"waste\"."
+        },
+        "len": {
+          "description": "Length of the sunk ship. Only with \"sunk\".",
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "result"
+      ],
+      "description": "A shot and its result."
+    },
+    "GameOver": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "game_over"
+        },
+        "game": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "index",
+            "total"
+          ]
+        },
+        "winner": {
+          "type": "string",
+          "enum": [
+            "you",
+            "opponent"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "sunk",
+            "timeout",
+            "strikes",
+            "disconnect"
+          ],
+          "description": "Why the game ended. \"timeout\", \"strikes\" and \"disconnect\" are forfeits by the loser."
+        },
+        "last_shot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Shot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Result of your last shot, if you have not been told yet."
+        },
+        "incoming": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Shot"
+          },
+          "description": "The opponent's shots you have not been told yet, in order."
+        },
+        "series": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "object",
+              "properties": {
+                "you": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "opponent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "you",
+                "opponent"
+              ],
+              "description": "Games won in the battery so far, this one included."
+            },
+            "done": {
+              "type": "boolean",
+              "description": "True after the last game of the battery."
+            }
+          },
+          "required": [
+            "score",
+            "done"
+          ]
+        },
+        "reveal": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "opponent_ships": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Ship"
+                  },
+                  "description": "Empty if the opponent never placed."
+                },
+                "opponent_shots": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Shot"
+                  },
+                  "description": "All of the opponent's shots, in order."
+                }
+              },
+              "required": [
+                "opponent_ships",
+                "opponent_shots"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The opponent's final layout and shots. Null when the ruleset has reveal_on_game_over false."
+        }
+      },
+      "required": [
+        "type",
+        "game",
+        "winner",
+        "reason",
+        "last_shot",
+        "incoming",
+        "series",
+        "reveal"
+      ],
+      "description": "A game ended with a result."
+    },
+    "Reset": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "reset"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "restart_game",
+            "reset_series",
+            "series_stopped"
+          ],
+          "description": "\"restart_game\": the game is voided and replayed. \"reset_series\": the battery is discarded, forget cross-game memory. \"series_stopped\": the battery ended early without a result."
+        }
+      },
+      "required": [
+        "type",
+        "reason"
+      ],
+      "description": "Forget the current game and wait for the next place. Needs no reply and can arrive at any time."
+    },
+    "ErrorMessage": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "error"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "bad_json",
+            "bad_shape",
+            "unknown_type",
+            "unexpected_message",
+            "frame_too_large",
+            "rate_limited",
+            "bad_hello",
+            "auth_failed",
+            "ruleset_mismatch",
+            "lobby_full",
+            "lobby_expired",
+            "hello_timeout",
+            "tls_required"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "Human readable explanation."
+        },
+        "fatal": {
+          "type": "boolean",
+          "description": "If true, the platform closes the connection right after."
+        }
+      },
+      "required": [
+        "type",
+        "code",
+        "message",
+        "fatal"
+      ],
+      "description": "A problem that is not an invalid reply to a pending request."
+    }
+  }
+}

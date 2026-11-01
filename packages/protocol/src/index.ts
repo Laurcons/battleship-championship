@@ -5,3 +5,4 @@ export * from './wire.js';
 export * from './build.js';
 export * from './lobbyCode.js';
 export * from './secrets.js';
+export * from './jsonSchema.js';

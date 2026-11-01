@@ -34,6 +34,18 @@ test.describe('documentation', () => {
     await page.getByRole('navigation', { name: 'Documentation' }).getByRole('link', { name: 'Protocol' }).click();
     await expect(page.getByTestId('protocol-versions')).toContainText('/program/v1');
 
+    // The JSON Schemas open in a new tab (shown in the browser, not downloaded) and are plain JSON files.
+    const schemaLinks = page.getByTestId('schemas-v1').getByRole('link');
+    await expect(schemaLinks).toHaveCount(3);
+    for (const link of await schemaLinks.all()) {
+      await expect(link).toHaveAttribute('target', '_blank');
+      const response = await page.request.get((await link.getAttribute('href')) as string);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()['content-type']).toContain('application/json');
+      expect(response.headers()['content-disposition']).toBeUndefined();
+      expect(((await response.json()) as { $schema: string }).$schema).toContain('json-schema.org');
+    }
+
     // The rulesets page loads the list from the API; it works for visitors, marks the default, and shows no lobby counts.
     await page.getByRole('navigation', { name: 'Documentation' }).getByRole('link', { name: 'Rulesets' }).click();
     await expect(page.getByTestId('ruleset-card').first()).toBeVisible();

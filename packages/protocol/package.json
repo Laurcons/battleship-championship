@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "schemas": "UPDATE_SCHEMAS=1 vitest run test/jsonSchema.test.ts"
   },
   "dependencies": {
     "@bsc/engine": "workspace:*",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "ajv": "^8.20.0",
     "fast-check": "^4.10.2",
     "vitest": "^5.0.5"
   }

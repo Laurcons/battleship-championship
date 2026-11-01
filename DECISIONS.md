@@ -67,7 +67,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 - **Resume:** a program that reconnects during the grace period receives its current game state (and any pending request) and carries on.
   - `welcome` issues a **`session_id`**, which is **optional** for programs. Reconnecting with it reclaims exactly the old seat (this matters only in self-play). Without it (for example the program restarted), the program takes the first empty seat.
   - While a seat is disconnected, the grace timer runs instead of the move timer. After a resume the move timer starts fresh.
-  - After the grace period, an in-progress single game is forfeited by the absent seat. In a battery, the series ends as `aborted`.
+  - After the grace period, an in-progress single game is forfeited by the absent seat. In a battery, the series ends as `aborted`, the interrupted game is voided, and the program that stayed is told with `reset` (`series_stopped`). A `game_over` is only for a game that ended with a result; a voided game gets a `reset`. The same `reset` is sent when the platform aborts a battery because of an internal error.
 
 ## 5. Lobbies
 
@@ -149,7 +149,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
 - Programs are expected to misbehave or have bugs, and the platform copes.
 - Malformed messages, illegal moves, timeouts, disconnects and stale or unsolicited messages are handled by defined policy.
 - Every infraction is recorded as an event and visible in the history. Invalid moves and repeated shots are **highlighted in the move history**, since they are bugs the participant should see.
-- Strikes apply to invalid moves and to replies with a wrong shape for a pending request. Stale and unsolicited messages are handled separately (see `docs/protocol-v1.md`, section 5).
+- Strikes apply to invalid moves and to replies with a wrong shape for a pending request. Stale and unsolicited messages are handled separately (see `docs/protocol-v1.md`, section 6).
 
 ## 12. Debugging tools
 
@@ -177,7 +177,7 @@ Only decisions approved by the project owner live here. Proposals awaiting appro
   - a generated message reference for every supported protocol version;
   - an error code table;
   - a "common mistakes" section;
-  - downloadable JSON Schemas.
+  - downloadable JSON Schemas: generated from the zod schemas into `apps/web/public/schemas/v1/` (three files: every frame, program to platform, platform to program), served as plain `application/json` files at `/schemas/v1/` and linked from the *Protocol versions* table. Links open in a new tab (shown, not downloaded). A test fails if the files drift from the zod schemas, and ajv checks them against the docs examples.
 - Example programs (minimal raw-WebSocket clients in TypeScript and Python) are **also downloadable from the platform**. They play trivially and **disclose no strategy**.
 - The bridge CLI is **postponed** and may never be built.
 
@@ -205,6 +205,9 @@ These are stated in the docs (a dedicated "Rules for programs" page), so every p
 - The handshake includes the opponent's name and program metadata, plus `game_index` and `total`.
 - **Heatmaps** are aggregated over a battery: shots per cell and placements per cell, per program. In restricted mode they are visible only for finished games.
 - The protocol-version policy: bump only on breaking changes, keep the previous version for a deprecation window, and generate the docs for every supported version from its schemas.
+  - **Additive changes do not bump the version**: a new optional field, error code or `reset` reason. The docs tell programs to ignore unknown fields and treat unknown codes as generic ones ("tolerant reader"). The JSON Schemas stay strict about the values of today and leave objects open.
+  - A reply with no readable `rid` is a standalone, non-fatal `bad_shape` error and no strike (it cannot be attributed to a request).
+  - A new version gets its own docs page (`/docs/protocol/vN`), schema folder (`/schemas/vN/`) and a hand-written "Changes from vN-1" section; the codec (frame builders and parsers) is chosen per connection, and the runtime stays version-neutral. None of this is built before a second version exists.
 
 ## 17. Testing
 
