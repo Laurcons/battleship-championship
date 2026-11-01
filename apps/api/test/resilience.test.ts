@@ -122,6 +122,7 @@ describe('when the program does not come back', () => {
     expect((await w.games(lobby.id))[0]).toMatchObject({ reason: 'disconnect', winner: 2 });
     await b.waitForFrame('game_over');
     expect(b.of('game_over')[0]).toMatchObject({ winner: 'you', reason: 'disconnect' });
+    expect(b.of('reset')).toEqual([]); // a single game ends with a result, not a reset
   });
 
   it('aborts a battery, keeps the partial results, and voids the interrupted game', async () => {
@@ -135,12 +136,16 @@ describe('when the program does not come back', () => {
         return undefined;
       },
     };
-    const { lobby } = await w.readyLobby({}, { seed: 1, behavior });
+    const { lobby, b } = await w.readyLobby({}, { seed: 1, behavior });
     await w.start(lobby.id, 5);
     const done = await w.untilSeriesEnds(lobby.id);
     expect(done.series.status).toBe('aborted');
     expect(done.series.played).toBe(2);
     expect(done.series.abortReason).toMatch(/Alice.*did not reconnect/);
+    // The program that stayed is told the battery is over, and nothing new follows.
+    await b.waitForFrame('reset');
+    expect(b.of('reset').at(-1)).toEqual({ type: 'reset', reason: 'series_stopped' });
+    expect(b.of('game_over').length).toBe(2);
     const games = await w.games(lobby.id);
     expect(games.map((g: any) => g.status)).toEqual(['over', 'over', 'void']);
     const report = (await w.alice.get(`/api/lobbies/${lobby.id}/report`)).body;

@@ -198,6 +198,15 @@ describe('stale and unexpected messages', () => {
     expect((await w.startAndFinish(lobby.id)).series.status).toBe('done');
   });
 
+  it('answers a reply with no readable rid with a bad_shape error, without a strike', async () => {
+    const { lobby, a } = await w.readyLobby({}, { seed: 1, behavior: badTurns(() => ({ type: 'fire', x: 0, y: 0 })) });
+    await w.startAndFinish(lobby.id);
+    expect(a.of('error')[0]).toMatchObject({ code: 'bad_shape', fatal: false });
+    // Not attributable to the request, so no strike: the request just times out.
+    expect(a.of('turn').every((t) => t.strikes === 0 && t.error === null)).toBe(true);
+    expect((await w.games(lobby.id))[0]).toMatchObject({ reason: 'timeout' });
+  });
+
   it('closes a connection that floods the platform with garbage', async () => {
     const { a } = await w.readyLobby();
     for (let i = 0; i < 40; i++) a.send('garbage');

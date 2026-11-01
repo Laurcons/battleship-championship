@@ -75,7 +75,7 @@ describe('hostile programs', () => {
     await wait(1500);
     // Whatever happened to the game, the platform answers and the junk was reported as errors, never as crashes.
     expect((await w.t.client().get('/api/health')).status).toBe(200);
-    expect(p.of('error').every((e) => ['bad_json', 'unknown_type', 'unexpected_message', 'frame_too_large', 'rate_limited'].includes(e.code))).toBe(true);
+    expect(p.of('error').every((e) => ['bad_json', 'bad_shape', 'unknown_type', 'unexpected_message', 'frame_too_large', 'rate_limited'].includes(e.code))).toBe(true);
   });
 });
 

@@ -24,6 +24,7 @@ export type GameplayErrorCode = (typeof GAMEPLAY_ERROR_CODES)[number];
 /** Codes of standalone `error` frames. */
 export const STANDALONE_ERROR_CODES = [
   'bad_json',
+  'bad_shape',
   'unknown_type',
   'unexpected_message',
   'frame_too_large',
@@ -39,7 +40,7 @@ export const STANDALONE_ERROR_CODES = [
 ] as const;
 export type StandaloneErrorCode = (typeof STANDALONE_ERROR_CODES)[number];
 
-/** WebSocket close codes (see docs/protocol-v1.md, section 7). */
+/** WebSocket close codes (see docs/protocol-v1.md, section 8). */
 export const CLOSE = {
   CLOSED_BY_PLATFORM: 4000,
   BAD_REQUEST: 4400,

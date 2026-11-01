@@ -252,7 +252,7 @@ export class LobbyRuntime {
     const parsed = parseInbound(text);
     const pending = this.pending[seat - 1];
 
-    const standalone = (code: 'bad_json' | 'unknown_type' | 'unexpected_message', message: string): ReceiveResult => {
+    const standalone = (code: 'bad_json' | 'bad_shape' | 'unknown_type' | 'unexpected_message', message: string): ReceiveResult => {
       this.send(seat, { type: 'error', code, message, fatal: false });
       return { counted: true };
     };
@@ -266,7 +266,7 @@ export class LobbyRuntime {
         return { counted: true }; // stale: ignored, logged only
       }
       if (parsed.code === 'frame_too_large') return { counted: true };
-      return standalone(parsed.code === 'bad_json' ? 'bad_json' : 'unknown_type', parsed.message);
+      return standalone(parsed.code === 'bad_json' ? 'bad_json' : parsed.code === 'bad_shape' ? 'bad_shape' : 'unknown_type', parsed.message);
     }
 
     const frame = parsed.frame;
@@ -381,6 +381,7 @@ export class LobbyRuntime {
         series.endedAt = this.host.now();
         this.lobby.live = null;
         await this.host.saveSeries(this.lobby, series).catch(() => undefined);
+        for (const seat of [1, 2] as const) this.notifyReset(seat, 'series_stopped');
         this.host.notify(this.lobby.id, true);
       }
     }
@@ -677,6 +678,8 @@ export class LobbyRuntime {
       }
     }
     for (const seatNo of [1, 2] as const) this.clearGrace(seatNo);
+    // The program that stayed is told the battery is over; the absent one has no link to hear it.
+    for (const seatNo of [1, 2] as const) this.notifyReset(seatNo, 'series_stopped');
     this.host.notify(this.lobby.id, true);
     return 'aborted';
   }
