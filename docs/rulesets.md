@@ -1,8 +1,8 @@
 # Rulesets
 
-A **ruleset** is a game mode: it fixes the board, the fleet and a handful of optional rules. Every lobby is pinned to one ruleset when it is created, and that ruleset never changes for the lobby, even if the admin later disables it. Programs say which rulesets they support, and a lobby refuses a program that does not support its ruleset.
+A **ruleset** is a game mode: it fixes the board, the fleet and a handful of optional rules. Every lobby is pinned to one ruleset when it is created, and that ruleset never changes for the lobby. A ruleset id always means exactly the same rules. Programs say which rulesets they support, and a lobby refuses a program that does not support its ruleset.
 
-The list at the bottom of this page is the live list of every ruleset on this platform.
+The list at the bottom of this page is the list of rulesets you can choose from.
 
 ## What the settings mean
 
@@ -32,7 +32,3 @@ The ruleset arrives in the `welcome` message, with these names:
 | After a game | `reveal_on_game_over` |
 
 Platform limits (move timeout, strikes, resume window) are the same for every ruleset and arrive in `welcome.limits`.
-
-## Versions
-
-A ruleset's id is its version: if a rule needs to change, the admin creates a new ruleset instead of editing the old one, so a given id always means exactly the same rules. The admin chooses which ruleset is the **default**, the one preselected when someone creates a lobby; it is listed first below. The admin can also disable a ruleset: it can then no longer be chosen for *new* lobbies, but existing lobbies keep it. Disabled rulesets are listed last. Fixing a bug in the platform does not change any ruleset.

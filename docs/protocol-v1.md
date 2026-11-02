@@ -1,13 +1,12 @@
 # Program Protocol v1
 
-This is the protocol the platform implements. The zod schemas in `packages/protocol` are the single source of truth for the shape of every frame. The JSON Schemas (section 9) are generated from them, and a test validates every JSON example in `docs/` against both.
+This is the protocol the platform implements. The shape of every frame is also available as JSON Schema (section 9).
 
 **Terms.** A *lobby* has two *seats*, and one program plays on each. A *game* is one round of Battleship. A *battery* is the series of games started by one press of *Start* in the web interface. A *request* is a `place` or `turn` message: the platform asks, the program replies. A *strike* is a counted mistake in a reply (section 6).
 
 ## 1. Transport
 
 - Endpoint: `wss://<host>/program/v1`. The protocol version is in the path, so the server can route before parsing any frame.
-- **Plain `ws://` is refused unless the admin has allowed it for your account** (admin page *Participants*, switch *Allow ws://*). Without it the platform answers `hello` with a fatal `tls_required` error and closes with code 4403. Over plain `ws://` the token travels unencrypted, so only use it on a network you trust.
 - One JSON object per **text** frame, UTF-8. Binary frames are rejected. No `permessage-deflate`.
 - Frames from the program to the platform are at most 16 KiB.
 - **Heartbeat uses WebSocket-level ping/pong**, not JSON messages. The platform pings every 15 s, and any standard WebSocket library answers automatically. A connection that has not answered for about 30 s is considered dead and is dropped. Make sure your program keeps answering pings while it thinks: a program that blocks its WebSocket thread for longer than that is disconnected. The program does not need to ping.
@@ -132,7 +131,7 @@ Must be the first frame, within 5 s of connecting.
 
 `hello` does everything at once: it authenticates, joins the lobby, checks the ruleset, and **is the program's "ready" confirmation**. There is no separate `ready` message. A program that needs setup time simply delays `hello` until it is ready.
 
-The platform checks a `hello` in this order, and the first problem is reported (section 8): the frame itself (`bad_hello`), then the token and lobby (`auth_failed`), whether the lobby has expired (`lobby_expired`), TLS (`tls_required`), the ruleset (`ruleset_mismatch`) and finally whether there is a seat for you (`lobby_full`). All of these are fatal.
+The platform checks a `hello` in this order, and the first problem is reported (section 8): the frame itself (`bad_hello`), then the token and lobby (`auth_failed`), whether the lobby has expired (`lobby_expired`), the ruleset (`ruleset_mismatch`) and finally whether there is a seat for you (`lobby_full`). All of these are fatal.
 
 ### `welcome` (platform to program)
 
@@ -393,7 +392,7 @@ What the platform does with a frame from the program, depending on what is pendi
 | A `placement` or `fire` that fails the schema and has no readable `rid` | Not attributable to a request, so no strike. Standalone non-fatal `error` with code `bad_shape`. The request stays pending and may time out. |
 | Repeated shot with `repeat_shot: "waste"` | Not a strike. The result is `"repeat"`, the turn passes, and the move is highlighted in the move history. |
 | No reply before `deadline_ms` | The game is lost immediately (`reason: "timeout"`). Not a strike. |
-| A reply with another `rid` than the pending request (for example answering a request cancelled by a reset) | Ignored, recorded in the debug frame log only: no strike, no message. If no request is pending at all, the reply is answered with a non-fatal `unexpected_message` error instead. |
+| A reply with another `rid` than the pending request (for example answering a request cancelled by a reset) | Ignored: no strike, no message. It still shows in the frame log of the lobby's *Connection* tab. If no request is pending at all, the reply is answered with a non-fatal `unexpected_message` error instead. |
 | A valid frame when no request is pending, or a second `hello` | Non-fatal `error` with code `unexpected_message`. |
 | Malformed JSON, or an unknown `type` | Non-fatal `error` with code `bad_json` or `unknown_type`. |
 | Any infraction (above, or a timeout) in a lobby created with **stop on infraction** | The game is voided (kept in the history), the battery ends as aborted with the results so far, and both programs receive `reset` with `reason: "series_stopped"`. |
@@ -452,7 +451,6 @@ The `error` message. Whether it is fatal depends on the code and on when it happ
 | `hello_timeout` | yes | 4408 | no `hello` within 5 s |
 | `auth_failed` | yes | 4401 | bad token, unknown lobby, or not allowed (not a seat owner in that lobby). The platform deliberately does not distinguish these |
 | `lobby_expired` | yes | 4410 | the lobby was idle for too long and is read-only now. Only sent after authentication, to a participant who owns a seat in it; create a new lobby instead |
-| `tls_required` | yes | 4403 | the token is valid, but the account may not connect over plain `ws://`. Only sent after authentication |
 | `ruleset_mismatch` | yes | 4426 | none of the `accepts` rulesets matches the lobby's ruleset. Only sent after authentication; the message names the lobby's ruleset |
 | `lobby_full` | yes | 4409 | the lobby has no empty seat for this participant |
 
@@ -462,8 +460,7 @@ Every fatal error above is followed by a close with the code in the table. These
 
 | Code | Meaning |
 |---|---|
-| 4000 | the platform closed the connection normally: the lobby was closed or expired, the token was replaced, `ws://` is no longer allowed for the account, or a newer connection replaced this one. The close reason says which |
-| 4500 | reserved for an internal error. The platform does not send it today |
+| 4000 | the platform closed the connection normally: the lobby was closed or expired, the token was replaced, or a newer connection replaced this one. The close reason says which |
 | 1009 | a frame over 64 KiB |
 | 1006 | not sent by the platform: the connection was lost without a close (for example the platform restarted) |
 
@@ -489,9 +486,7 @@ Objects are open: extra fields are allowed, as described in section 2. The enume
 
 ## 10. Versioning
 
-- The version is the path of the endpoint (`/program/v1`). A new version is created only for a **breaking** change: removing a field, message or code, or changing what it means.
-- **Additive changes do not change the version.** A new optional field, a new error code or a new `reset` reason can appear within v1. That is why programs must ignore unknown fields and treat unknown codes as generic ones (section 2). This document and the schemas are updated when it happens.
-- When a new version is released, the previous one stays supported for a deprecation window and is marked as deprecated, with its end date, in the *Protocol versions* table. Every version keeps its own documentation page and schemas on this site.
+The version is the path of the endpoint (`/program/v1`). A new field, error code or `reset` reason can be added within v1, which is why programs must ignore what they do not know (section 2). A breaking change gets a new endpoint, such as `/program/v2`.
 
 ## 11. Design notes
 

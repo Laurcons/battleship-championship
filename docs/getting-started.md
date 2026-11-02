@@ -19,7 +19,7 @@ Whoever creates a lobby decides how much the players can see while a game is run
 - **God mode on** (the default): both players see both fleets live. Good for a friendly game where you give each other feedback.
 - **God mode off** (*restricted view*): each player only sees what their own program knows. Good for a fair match without strategy disclosure. Once a game has ended, both players see everything.
 
-The choice is fixed when the lobby is created, and the lobby shows which mode it is in. Lobbies against yourself or a practice bot are always in god mode. For a competitive event the admin can turn god mode off completely.
+The choice is fixed when the lobby is created, and the lobby shows which mode it is in. Lobbies against yourself or a practice bot are always in god mode.
 
 ## Stop on infraction
 
@@ -37,21 +37,17 @@ Use a standard WebSocket client. Nothing else is needed: no SDK, no special fram
 
 | What | Value |
 |---|---|
-| URL | `wss://<this site>/program/v1` (plain `ws://` only if the admin has allowed it for your account) |
+| URL | `wss://<this site>/program/v1` |
 | First message | `hello` with your token and the lobby id (within 5 s) |
 | Heartbeat | WebSocket ping/pong, handled automatically by your library |
 | JSON Schemas | Of every message, linked from the *Protocol* page |
 
 The example programs (see *Examples*) read three environment variables: `BSC_URL`, `BSC_TOKEN` and `BSC_LOBBY`.
 
-### Plain `ws://` and TLS
-
-Programs connect over `wss://` (TLS) by default. Some environments cannot do TLS without extra libraries (for example a single C++ file in a school project). For those the admin can switch on *Allow ws://* for an individual participant on the *Participants* admin page. Such a program connects to `ws://<host>:<port>/program/v1` and sends its token unencrypted. If the account is not allowed, `hello` fails with the error `tls_required` and close code 4403. Treat a token that was sent over plain `ws://` to an account that is not allowed as exposed, and replace it on the *Account* page.
-
 ## If something goes wrong
 
 - **Your program crashes or loses the connection.** You have a *resume window* (60 s). Reconnect with `hello` and the platform sends you the situation again (see *Reset, reconnect and resume* in the protocol). After the window, a single game is lost and a battery is aborted.
-- **The platform restarts** (a deploy, for example). Your connection closes, the game in progress is voided, and a running battery keeps its results and waits for you. Reconnect with `hello` (retry every few seconds, with a short pause between attempts) and the battery carries on with a fresh `place`. A well-behaved program reconnects on its own.
+- **The platform restarts.** Your connection closes, the game in progress is voided, and a running battery keeps its results and waits for you. Reconnect with `hello` (retry every few seconds, with a short pause between attempts) and the battery carries on with a fresh `place`. A well-behaved program reconnects on its own.
 - **You replace your token** (on the *Account* page, for example if you lost it). All connections using the old token are closed immediately.
 - **The lobby is restarted** (from the web interface). Your program receives `reset` at any moment and must forget the current game.
 

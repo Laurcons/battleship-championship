@@ -33,7 +33,7 @@ export const PROTOCOL_VERSIONS: ProtocolVersion[] = [
     version: 1,
     path: '/program/v1',
     status: 'current',
-    note: 'The first and current version.',
+    note: 'Current version.',
     schemas: [
       { label: 'All frames', href: '/schemas/v1/program-v1.json' },
       { label: 'Program to platform', href: '/schemas/v1/to-platform.json' },

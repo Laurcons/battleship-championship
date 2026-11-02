@@ -4,7 +4,6 @@ import { CopyButton } from '../components/CopyButton';
 import { Loading } from '../components/ErrorAlert';
 import { RulesetDetails } from '../components/RulesetDetails';
 import { useRulesets } from '../hooks/queries';
-import { formatDateTime } from '../lib/format';
 import { Markdown } from '../components/Markdown';
 import { DOC_PAGES, EXAMPLES, EXAMPLES_README, PROTOCOL_VERSIONS } from '../docs';
 
@@ -49,10 +48,10 @@ function RulesetsPage() {
   return (
     <>
       <Markdown source={page?.source ?? ''} />
-      <h2 className="h4 mt-4">All rulesets on this platform</h2>
+      <h2 className="h4 mt-4">Available rulesets</h2>
       {rulesets.isLoading && <Loading />}
       <div className="d-grid gap-3" data-testid="rulesets-list">
-        {rulesets.data?.map((r) => (
+        {rulesets.data?.filter((r) => r.enabled).map((r) => (
           <Card key={r.ruleset.id} data-testid="ruleset-card" data-ruleset={r.ruleset.id}>
             <Card.Body>
               <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
@@ -62,8 +61,6 @@ function RulesetsPage() {
                     default for new lobbies
                   </Badge>
                 )}
-                {!r.enabled && <Badge bg="secondary">disabled: not available for new lobbies</Badge>}
-                <span className="small text-body-secondary ms-auto">Created {formatDateTime(r.createdAt)}</span>
               </div>
               <p className="small">{r.ruleset.description}</p>
               <RulesetDetails ruleset={r.ruleset} testId={`ruleset-details-${r.ruleset.id}`} />
